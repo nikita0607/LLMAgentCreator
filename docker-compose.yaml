@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: llm_agents_db
+    restart: always
+    environment:
+      POSTGRES_USER: llm
+      POSTGRES_PASSWORD: llm
+      POSTGRES_DB: llm_agents
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: llm_agents_backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  test_hooks:
+    build:
+      context: ./test_webhook
+    container_name: llm_agents_webhook_test
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./test_webhook:/app
+
+volumes:
+  db_data:

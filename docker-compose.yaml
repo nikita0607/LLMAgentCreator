@@ -38,5 +38,16 @@ services:
     volumes:
       - ./test_webhook:/app
 
+  frontend:
+    build:
+      context: ./frontend   # путь до фронта
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+
 volumes:
   db_data:

@@ -1,0 +1,15 @@
+ruff
+elevenlabs
+groq
+alembic~=1.16.4
+requests~=2.32.5
+psycopg[binary,pool]
+uvicorn
+python-multipart
+python-jose[cryptography]~=3.5.0
+passlib~=1.7.4
+pydantic-settings~=2.10.1
+fastapi~=0.116.1
+SQLAlchemy~=2.0.43
+pydantic~=2.11.7
+python-dotenv~=1.1.1

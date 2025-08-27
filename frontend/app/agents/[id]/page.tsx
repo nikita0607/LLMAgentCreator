@@ -19,6 +19,7 @@ import ReactFlow, {
 import { apiFetch } from "@/lib/api";
 import { Dialog } from "@headlessui/react";
 import { CustomNode } from "./CustomNode";
+import { v4 as uuidv4 } from "uuid";
 
 interface NodeParam {
   id: string;
@@ -38,9 +39,7 @@ interface NodeData {
   missing_param_message?: string;
 }
 
-const nodeTypes = {
-  custom: CustomNode,
-};
+const nodeTypes = { custom: CustomNode };
 
 export default function AgentEditorPage() {
   const params = useParams();
@@ -60,7 +59,6 @@ export default function AgentEditorPage() {
     setEdges((eds) => applyEdgeChanges(changes, eds));
   const onConnect = (connection: Edge | Connection) =>
     setEdges((eds) => addEdge(connection, eds));
-
   const onNodesDelete = (deleted: Node[]) => {
     setNodes((nds) => nds.filter((n) => !deleted.find((d) => d.id === n.id)));
     setEdges((eds) =>
@@ -69,7 +67,6 @@ export default function AgentEditorPage() {
       )
     );
   };
-
   const onEdgesDelete = (deleted: Edge[]) => {
     setEdges((eds) => eds.filter((e) => !deleted.find((d) => d.id === e.id)));
   };
@@ -96,7 +93,7 @@ export default function AgentEditorPage() {
             if (n.type === "webhook" && n.params) {
               paramsArray = n.params.map((el: any) => ({
                 ...el,
-                id: crypto.randomUUID(),
+                id: uuidv4(),
               }));
             }
 
@@ -159,7 +156,7 @@ export default function AgentEditorPage() {
   }, [agentId]);
 
   const addNode = () => {
-    const newId = crypto.randomUUID();
+    const newId = uuidv4();
     const newNode: Node = {
       id: newId,
       type: "custom",
@@ -179,7 +176,7 @@ export default function AgentEditorPage() {
           n.id === editNode.id ? { ...n, data: { ...editNode } } : n
         );
       }
-      const newId = editNode.id || crypto.randomUUID();
+      const newId = editNode.id || uuidv4();
       return [
         ...nds,
         {
@@ -300,7 +297,7 @@ export default function AgentEditorPage() {
           <Background />
         </ReactFlow>
 
-        {/* --- Модалка (как было) --- */}
+        {/* --- Модалка --- */}
         <Dialog
           open={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -344,7 +341,7 @@ export default function AgentEditorPage() {
                         <h3 className="font-semibold mb-2 text-gray-800">
                           Параметры Webhook
                         </h3>
-                        {(editNode.params || []).map((param, idx) => (
+                        {(editNode.params || []).map((param) => (
                           <div key={param.id} className="flex gap-2 mb-2">
                             <input
                               type="text"
@@ -353,6 +350,7 @@ export default function AgentEditorPage() {
                               value={param.name}
                               onChange={(e) => {
                                 const newParams = [...(editNode.params || [])];
+                                const idx = newParams.findIndex((p) => p.id === param.id);
                                 newParams[idx].name = e.target.value;
                                 setEditNode({ ...editNode, params: newParams });
                               }}
@@ -364,6 +362,7 @@ export default function AgentEditorPage() {
                               value={param.description}
                               onChange={(e) => {
                                 const newParams = [...(editNode.params || [])];
+                                const idx = newParams.findIndex((p) => p.id === param.id);
                                 newParams[idx].description = e.target.value;
                                 setEditNode({ ...editNode, params: newParams });
                               }}
@@ -375,6 +374,7 @@ export default function AgentEditorPage() {
                               value={param.value || ""}
                               onChange={(e) => {
                                 const newParams = [...(editNode.params || [])];
+                                const idx = newParams.findIndex((p) => p.id === param.id);
                                 newParams[idx].value = e.target.value;
                                 setEditNode({ ...editNode, params: newParams });
                               }}
@@ -383,8 +383,7 @@ export default function AgentEditorPage() {
                               type="button"
                               className="bg-red-500 text-white px-2 rounded hover:bg-red-600"
                               onClick={() => {
-                                const newParams = [...(editNode.params || [])];
-                                newParams.splice(idx, 1);
+                                const newParams = [...(editNode.params || [])].filter((p) => p.id !== param.id);
                                 setEditNode({ ...editNode, params: newParams });
                               }}
                             >
@@ -398,12 +397,7 @@ export default function AgentEditorPage() {
                           onClick={() => {
                             const newParams = [
                               ...(editNode.params || []),
-                              {
-                                id: crypto.randomUUID(),
-                                name: "",
-                                description: "",
-                                value: "",
-                              },
+                              { id: uuidv4(), name: "", description: "", value: "" },
                             ];
                             setEditNode({ ...editNode, params: newParams });
                           }}
@@ -411,9 +405,7 @@ export default function AgentEditorPage() {
                           Добавить параметр
                         </button>
 
-                        <label className="block mb-1 text-gray-800 mt-2">
-                          Action
-                        </label>
+                        <label className="block mb-1 text-gray-800 mt-2">Action</label>
                         <input
                           type="text"
                           className="w-full p-2 border rounded mb-2 text-gray-900"

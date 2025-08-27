@@ -6,7 +6,7 @@ app = FastAPI(title="LLM Agents")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # фронт
+    allow_origins=["*"],  # фронт
     allow_credentials=True,
     allow_methods=["*"],  # разрешить все методы (включая OPTIONS)
     allow_headers=["*"],

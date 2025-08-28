@@ -70,4 +70,196 @@ GROQ_API_KEY=your-groq-api-key
 
 ### 3. Frontend Dependencies (Optional for Docker)
 
-Але если ты не знаешь как запустить иди учись емое
+If you plan to run the frontend outside Docker:
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+## 🐳 Running with Docker (Recommended)
+
+### Quick Start
+
+```bash
+# Build and start all services
+docker-compose up --build
+```
+
+This will start:
+
+- **PostgreSQL Database** on port `5432`
+- **Backend API** on port `8000`
+- **Webhook Test Service** on port `8080`
+
+### Service URLs
+
+- **Backend API**: http://localhost:8000
+- **API Documentation**: http://localhost:8000/docs
+- **Webhook Test Service**: http://localhost:8080
+- **Database**: localhost:5432 (user: `llm`, password: `llm`, database: `llm_agents`)
+
+### Database Migrations
+
+Migrations are handled automatically when the backend container starts. If you need to run them manually:
+
+```bash
+# Enter the backend container
+docker exec -it llm_agents_backend bash
+
+# Run migrations
+alembic upgrade head
+```
+
+## 💻 Local Development (Without Docker)
+
+### Backend Setup
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+export DATABASE_URL="postgresql://llm:llm@localhost:5432/llm_agents"
+export JWT_SECRET="your-secret-key"
+export ELEVENLABS_API_KEY="your-key"
+export GROQ_API_KEY="your-key"
+
+# Run database migrations
+alembic upgrade head
+
+# Start the backend server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Frontend Setup
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+The frontend will be available at http://localhost:3000
+
+### Database Setup (Local PostgreSQL)
+
+If running without Docker, you need a local PostgreSQL instance:
+
+```bash
+# Install PostgreSQL (macOS)
+brew install postgresql
+brew services start postgresql
+
+# Create database and user
+psql postgres
+CREATE USER llm WITH PASSWORD 'llm';
+CREATE DATABASE llm_agents OWNER llm;
+GRANT ALL PRIVILEGES ON DATABASE llm_agents TO llm;
+\q
+```
+
+## 🔧 API Keys Setup
+
+### ElevenLabs API Key
+
+1. Visit [ElevenLabs](https://elevenlabs.io/)
+2. Create an account and get your API key
+3. Add it to your `.env` file as `ELEVENLABS_API_KEY`
+
+### Groq API Key
+
+1. Visit [Groq](https://groq.com/)
+2. Create an account and get your API key
+3. Add it to your `.env` file as `GROQ_API_KEY`
+
+## 📚 Usage
+
+1. **Access the Application**: Open http://localhost:3000 (if running frontend separately) or use the API directly at http://localhost:8000
+
+2. **Register/Login**: Create a user account through the authentication endpoints
+
+3. **Create Agents**: Use the agent management interface to create and configure AI agents
+
+4. **Start Chatting**: Interact with your agents through the chat interface
+
+5. **API Documentation**: Visit http://localhost:8000/docs for interactive API documentation
+
+## 🛠️ Development Commands
+
+```bash
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+
+# Rebuild services
+docker-compose up --build
+
+# Run backend tests (if available)
+docker exec -it llm_agents_backend pytest
+
+# Access backend shell
+docker exec -it llm_agents_backend bash
+
+# Access database
+docker exec -it llm_agents_db psql -U llm -d llm_agents
+```
+
+## 📁 Project Structure
+
+```
+LLMAgentCreator/
+├── backend/                 # FastAPI backend
+│   ├── app/
+│   │   ├── api/            # API endpoints
+│   │   ├── core/           # Configuration and security
+│   │   ├── models/         # SQLAlchemy models
+│   │   ├── schemas/        # Pydantic schemas
+│   │   ├── services/       # Business logic
+│   │   └── main.py         # FastAPI application
+│   ├── migrations/         # Alembic migrations
+│   └── requirements.txt    # Python dependencies
+├── frontend/               # Next.js frontend
+│   ├── app/               # Next.js app router
+│   ├── components/        # React components
+│   └── lib/              # Utilities and API client
+├── test_webhook/          # Webhook test service
+└── docker-compose.yaml    # Docker orchestration
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-name`
+3. Make your changes and commit: `git commit -m 'Add feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
+
+## 📄 License
+
+[Add your license information here]
+
+## 📞 Support
+
+If you encounter any issues or have questions:
+
+1. Check the troubleshooting section above
+2. Review the API documentation at http://localhost:8000/docs
+3. Create an issue in the repository
+
+---
+
+**Happy coding! 🚀**

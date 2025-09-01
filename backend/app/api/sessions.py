@@ -67,6 +67,7 @@ def send_message(
     result = process_node(
         nodes,
         current_node,
+        agent_id=db_session.agent_id,
         user_input={'user_text': msg.text},
         system_prompt=agent.system_prompt,
         voice_id=agent.voice_id,

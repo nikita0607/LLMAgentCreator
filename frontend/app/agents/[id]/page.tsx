@@ -31,7 +31,7 @@ interface NodeParam {
 interface NodeData {
   id: string;
   label: string;
-  type: "message" | "webhook";
+  type: "message" | "webhook" | "knowledge";
   action?: string;
   url?: string;
   method?: string;
@@ -209,7 +209,7 @@ export default function AgentEditorPage() {
           text: data.label,
         };
 
-        if (data.type === "message") {
+        if (data.type === "message" || data.type === "knowledge") {
           const out = outgoing[n.id]?.[0];
           if (out) base.next = out.target;
         }
@@ -326,13 +326,14 @@ export default function AgentEditorPage() {
                     onChange={(e) =>
                       setEditNode({
                         ...editNode,
-                        type: e.target.value as "message" | "webhook",
+                        type: e.target.value as "message" | "webhook" | "knowledge",
                       })
                     }
                     className="w-full p-2 border rounded mb-4 text-gray-900"
                   >
                     <option value="message">Message</option>
                     <option value="webhook">Webhook</option>
+                    <option value="knowledge">Knowledge</option>
                   </select>
 
                   {editNode.type === "webhook" && (

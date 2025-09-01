@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import auth, agents, sessions, webhooks
+from app.api import auth, agents, sessions, webhooks, knowledge_base
 
 app = FastAPI(title="LLM Agents")
 
@@ -17,3 +17,4 @@ app.include_router(auth.router)
 app.include_router(agents.router)
 app.include_router(sessions.router)
 app.include_router(webhooks.router)
+app.include_router(knowledge_base.router)

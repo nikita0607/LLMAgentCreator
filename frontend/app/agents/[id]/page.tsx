@@ -162,7 +162,7 @@ export default function AgentEditorPage() {
       id: newId,
       type: "custom",
       data: { id: newId, label: "Новый узел", type: "message", params: [] },
-      position: { x: nodes.length * 250, y: 100 },
+      position: { x: nodes.length, y: 100 },
     };
     setNodes((prev) => [...prev, newNode]);
     openModal(newNode);
@@ -213,7 +213,7 @@ export default function AgentEditorPage() {
         if (data.type === "message" || data.type === "knowledge") {
           const out = outgoing[n.id]?.[0];
           if (out) base.next = out.target;
-        }
+        } 
 
         if (data.type === "webhook") {
           if (data.action) base.action = data.action;

@@ -1,8 +1,11 @@
 import json
 from typing import Optional
 
+import requests
+
 from app.services.webhook import call_webhook
 from app.services.elevenlabs_chat import chat_with_agent
+from app.api.knowledge_base import search_knowledge
 
 import re
 
@@ -92,7 +95,8 @@ def get_node(nodes: dict[str, dict], node_id) -> dict:
             return nodes[n_id]
 
 
-def process_node(nodes: list[dict], node: dict, user_input: Optional[dict[str]] = None, system_prompt: str = "", voice_id: str = "", conversation_id: Optional[str] = None):
+def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optional[dict[str]] = None,
+                 system_prompt: str = "", voice_id: str = "", conversation_id: Optional[str] = None):
     """
     Обрабатывает узел drag&drop (message / webhook) и возвращает:
     {
@@ -143,3 +147,33 @@ def process_node(nodes: list[dict], node: dict, user_input: Optional[dict[str]] 
                 "next_node": node.get("on_failure"),
                 "conversation_id": conversation_id
             }
+
+    if node["type"] == "knowledge":
+        search_request = {
+            "agent_id": agent_id,
+            "query": user_input["user_text"],
+            "top_k": 5
+        }
+
+        print(search_request)
+
+        response = requests.post(
+            f"http://localhost:8000/knowledge/search",
+            json=search_request,
+            headers={"Content-Type": "application/json"}
+        )
+
+        reply = ""
+
+        for embedding in response.json():
+            reply += f"{embedding['text_chunk']} \n"
+
+
+        return {
+            "reply": reply,
+            "next_node": node.get("next"),
+            "conversation_id": conversation_id
+        }
+
+
+    return None

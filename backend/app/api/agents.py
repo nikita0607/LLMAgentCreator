@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from app.db import get_db
@@ -10,6 +10,7 @@ from app.schemas.agent import AgentUpdate
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
+
 @router.post("/", response_model=AgentOut)
 def create_agent(agent: AgentCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     db_agent = Agent(**agent.dict(), owner_id=current_user.id)
@@ -18,9 +19,11 @@ def create_agent(agent: AgentCreate, db: Session = Depends(get_db), current_user
     db.refresh(db_agent)
     return db_agent
 
+
 @router.get("/", response_model=List[AgentOut])
 def list_agents(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     return db.query(Agent).filter(Agent.owner_id == current_user.id).all()
+
 
 @router.get("/{agent_id}", response_model=AgentOut)
 def get_agent(agent_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -28,6 +31,7 @@ def get_agent(agent_id: int, db: Session = Depends(get_db), current_user: User =
     if not db_agent:
         raise HTTPException(status_code=404, detail="Agent not found")
     return db_agent
+
 
 @router.put("/{agent_id}", response_model=AgentUpdate)
 def update_agent(agent_id: int, agent_update: AgentUpdate, db: Session = Depends(get_db)):
@@ -40,3 +44,18 @@ def update_agent(agent_id: int, agent_update: AgentUpdate, db: Session = Depends
     db.commit()
     db.refresh(agent)
     return agent_update
+
+
+@router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_agent(agent_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user), ):
+    agent = (
+        db.query(Agent)
+        .filter(Agent.id == agent_id, Agent.owner_id == current_user.id)
+        .first()
+    )
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    db.delete(agent)
+    db.commit()
+    return None

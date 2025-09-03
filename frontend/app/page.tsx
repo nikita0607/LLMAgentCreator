@@ -16,6 +16,31 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  async function handleDelete(agentId: number) {
+    const confirmDelete = window.confirm("Удалить этого агента? Это действие необратимо.");
+    if (!confirmDelete) return;
+
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/agents/${agentId}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || "Delete failed");
+      }
+
+      setAgents((prev) => prev.filter((a) => a.id !== agentId));
+    } catch (err) {
+      console.error("Ошибка удаления агента:", err);
+      alert("Не удалось удалить агента. Попробуйте еще раз.");
+    }
+  }
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -68,6 +93,12 @@ export default function HomePage() {
               >
                 Открыть чат
               </Link>
+              <button
+                onClick={() => handleDelete(agent.id)}
+                className="text-red-500 hover:underline"
+              >
+                Удалить
+              </button>
             </div>
           </div>
         ))}

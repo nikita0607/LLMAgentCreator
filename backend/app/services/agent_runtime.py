@@ -65,7 +65,7 @@ def extract_params_via_llm(user_input: dict[str], params: dict, system_prompt: s
             f"{system_prompt}\n"
             f"Ввод пользователя: '{user_input.get('user_text')}'\n"
             f"Извлеки значения для следующих параметров:\n{param_descriptions}\n"
-            f"Верни JSON с найденными параметрами в формате 'PARAM_NAME': 'PARAM_VALUE'. Если параметр не найден — пропусти его. В ответ не отправляй ничего кроме самого JSON. "
+            f"Верни JSON с найденными параметрами в формате 'PARAM_NAME': 'PARAM_VALUE'. Если параметр не найден — пропусти его. В ответ не отправляй ничего кроме самого валидного JSON. "
             f"Не используй оформлений"
         )
 
@@ -95,8 +95,15 @@ def get_node(nodes: dict[str, dict], node_id) -> dict:
             return nodes[n_id]
 
 
-def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optional[dict[str]] = None,
-                 system_prompt: str = "", voice_id: str = "", conversation_id: Optional[str] = None):
+def process_node(
+    nodes: dict[str, dict],
+    node: dict,
+    agent_id: int,
+    user_input: Optional[dict[str]] = None,
+    system_prompt: str = "",
+    voice_id: str = "",
+    conversation_id: Optional[str] = None,
+):
     """
     Обрабатывает узел drag&drop (message / webhook) и возвращает:
     {
@@ -138,7 +145,15 @@ def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optio
             next_node = get_node(nodes, node.get("on_success"))
             print("ASDASD", user_input)
             user_input['result'] = result
-            next_call = process_node(nodes, next_node, user_input, system_prompt, voice_id, conversation_id)
+            next_call = process_node(
+                nodes=nodes,
+                node=next_node,
+                agent_id=agent_id,
+                user_input=user_input,
+                system_prompt=system_prompt,
+                voice_id=voice_id,
+                conversation_id=conversation_id,
+            )
 
             return next_call
         except Exception as e:

@@ -33,7 +33,7 @@ def chat_with_agent(prompt: str, voice_id, conversation_id: Optional[str] = None
 
     # Здесь можно хранить историю чата у себя (например, в БД), но для примера просто одно сообщение
     response = groq_client.chat.completions.create(
-        model="llama3-8b-8192",  # можно заменить на любую другую доступную
+        model="llama-3.1-8b-instant",  # можно заменить на любую другую доступную
         messages=[
             {"role": "user", "content": prompt},
         ],

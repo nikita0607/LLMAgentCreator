@@ -20,27 +20,77 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Загружаем агента и создаём сессию
+  // Загружаем агента и восстанавливаем/создаём сессию
   useEffect(() => {
     async function initChat() {
       try {
         const agent = await apiFetch(`/agents/${agentId}`);
         setAgentName(agent.name);
 
-        const session = await apiFetch(`/sessions/`, {
-          method: "POST",
-          body: JSON.stringify({ agent_id: agentId }),
-        });
-        setSessionId(session.id);
+        const storageKey = `agent:${agentId}:lastSessionId`;
+        let existingSessionId: number | null = null;
+        try {
+          const raw = typeof window !== "undefined" ? window.localStorage.getItem(storageKey) : null;
+          existingSessionId = raw ? Number(raw) : null;
+          if (Number.isNaN(existingSessionId || undefined)) existingSessionId = null;
+        } catch (_) {
+          existingSessionId = null;
+        }
 
-        // подгружаем историю, если есть
-        const history = await apiFetch(`/sessions/${session.id}/history`);
-        if (history?.messages) {
-          const msgs: Message[] = history.messages.map((m: any) => ({
-            sender: m.sender === "user" ? "user" : "agent",
-            text: m.text,
-          }));
-          setMessages(msgs);
+        let activeSessionId: number | null = null;
+
+        // Пытаемся загрузить историю существующей сессии
+        if (existingSessionId) {
+          try {
+            const history = await apiFetch(`/sessions/${existingSessionId}/history`);
+            if (history?.id) {
+              activeSessionId = history.id;
+              setSessionId(history.id);
+              if (history?.messages) {
+                const msgs: Message[] = history.messages.map((m: any) => ({
+                  sender: m.sender === "user" ? "user" : "agent",
+                  text: m.text,
+                }));
+                setMessages(msgs);
+              }
+            }
+          } catch (_) {
+            // Если история не загрузилась (например, 404), создаём новую сессию
+            activeSessionId = null;
+          }
+        }
+
+        // Если нет валидной сессии — создаём новую
+        if (!activeSessionId) {
+          const session = await apiFetch(`/sessions/`, {
+            method: "POST",
+            body: JSON.stringify({ agent_id: agentId }),
+          });
+          activeSessionId = session.id;
+          setSessionId(session.id);
+
+          // Загружаем историю (если вдруг созданная сессия уже имеет сообщения)
+          try {
+            const history = await apiFetch(`/sessions/${session.id}/history`);
+            if (history?.messages) {
+              const msgs: Message[] = history.messages.map((m: any) => ({
+                sender: m.sender === "user" ? "user" : "agent",
+                text: m.text,
+              }));
+              setMessages(msgs);
+            }
+          } catch (_) {
+            // игнорируем ошибки истории для только что созданной сессии
+          }
+
+          // Сохраняем id сессии в localStorage для последующих открытий
+          try {
+            if (typeof window !== "undefined") {
+              window.localStorage.setItem(storageKey, String(session.id));
+            }
+          } catch (_) {
+            // игнорируем ошибки записи в localStorage
+          }
         }
       } catch (err) {
         console.error("Ошибка инициализации чата:", err);
@@ -65,6 +115,15 @@ export default function ChatPage() {
 
       const reply: Message = { sender: "agent", text: response.reply };
       setMessages((msgs) => [...msgs, reply]);
+
+      // Убедимся, что текущая сессия сохранена как последняя для этого агента
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(`agent:${agentId}:lastSessionId`, String(sessionId));
+        }
+      } catch (_) {
+        // игнорируем ошибки записи в localStorage
+      }
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
       setMessages((msgs) => [

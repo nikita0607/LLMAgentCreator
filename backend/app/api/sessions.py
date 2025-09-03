@@ -19,7 +19,14 @@ def create_session(session: SessionCreate, db: Session = Depends(get_db), curren
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    db_session = SessionModel(agent_id=agent.id, user_id=current_user.id)
+    # Инициализируем текущий узел из логики агента, если задан
+    start_node = None
+    try:
+        start_node = (agent.logic or {}).get("start_node")
+    except Exception:
+        start_node = None
+
+    db_session = SessionModel(agent_id=agent.id, user_id=current_user.id, current_node=start_node)
     db.add(db_session)
     db.commit()
     db.refresh(db_session)

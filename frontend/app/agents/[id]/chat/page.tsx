@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 interface Message {
@@ -77,8 +78,14 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-blue-600 text-white p-4 font-bold text-lg">
-        Чат с агентом: {agentName || "..."}
+      <div className="bg-blue-600 text-white p-4 font-bold text-lg flex justify-between items-center">
+        <span>Чат с агентом: {agentName || "..."}</span>
+         <Link
+              href="/"
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+            >
+              К списку агентов
+            </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

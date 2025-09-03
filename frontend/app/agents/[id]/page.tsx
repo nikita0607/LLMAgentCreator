@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -262,6 +263,12 @@ export default function AgentEditorPage() {
             Редактор агента: {agentName}
           </h1>
           <div className="flex gap-2">
+            <Link
+              href="/"
+              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+            >
+              К списку агентов
+            </Link>
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               onClick={addNode}

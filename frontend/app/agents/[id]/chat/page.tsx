@@ -139,12 +139,20 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen bg-gray-100">
       <div className="bg-blue-600 text-white p-4 font-bold text-lg flex justify-between items-center">
         <span>Чат с агентом: {agentName || "..."}</span>
-         <Link
-              href="/"
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-            >
-              К списку агентов
-            </Link>
+        <div className="flex items-center gap-2 ml-auto">
+          <Link
+            href={`/agents/${agentId}`}
+            className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+          >
+            Редактировать
+          </Link>
+          <Link
+            href="/"
+            className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
+          >
+            К списку агентов
+          </Link>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

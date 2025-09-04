@@ -269,12 +269,20 @@ export default function AgentEditorPage() {
             >
               К списку агентов
             </Link>
+            <Link
+              href={`/agents/${String(agentId)}/chat`}
+              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
+            >
+              В чат
+            </Link>
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               onClick={addNode}
             >
               Добавить узел
             </button>
+
+
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               onClick={saveToServer}

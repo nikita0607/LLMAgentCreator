@@ -14,6 +14,13 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
       className="bg-white border p-2 rounded shadow relative cursor-pointer"
     >
       <div>{data.label}</div>
+      
+      {/* Отображаем название файла для knowledge нод */}
+      {data.type === "knowledge" && data.filename && (
+        <div className="text-xs text-gray-500 mt-1 italic">
+          📄 {data.filename}
+        </div>
+      )}
 
       {/* Левый вход */}
       <Handle

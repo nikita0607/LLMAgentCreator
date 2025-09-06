@@ -1,79 +1,192 @@
 import io
 import tempfile
 import os
+from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
-# from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
 
 from app.models.knowledge_base import KnowledgeNode, KnowledgeEmbedding
+from app.services.data_extractors import DataExtractorFactory, SourceInput
+from app.core.config import settings
 import numpy as np
 
 
 class KnowledgeService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, groq_api_key: Optional[str] = None):
         self.db = db
         self.embeddings_model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
+        # Инициализируем фабрику экстракторов
+        self.extractor_factory = DataExtractorFactory(groq_api_key=groq_api_key)
 
 
-    def _load_document(self, file: io.BytesIO, filename: str):
-        """Сохраняем файл во временную директорию и подгружаем через лоадер"""
-        suffix = os.path.splitext(filename)[-1]
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file.read())
-            tmp_path = tmp.name
-
+    def add_source(self, agent_id: int, node_id: str, data: Any, source_name: str, 
+                   source_metadata: Optional[Dict[str, Any]] = None):
+        """
+        Общий метод для добавления любого типа источника данных.
+        
+        Args:
+            agent_id: ID агента
+            node_id: ID ноды в UI
+            data: Данные источника (файл, URL, и т.д.)
+            source_name: Имя источника
+            source_metadata: Дополнительные метаданные источника
+            
+        Returns:
+            KnowledgeNode: Созданная или обновленная нода
+        """
         try:
-            if filename.endswith(".txt"):
-                loader = TextLoader(tmp_path, encoding="utf-8")
-            elif filename.endswith(".pdf"):
-                loader = PyPDFLoader(tmp_path)
-            elif filename.endswith(".docx"):
-                loader = Docx2txtLoader(tmp_path)
-            else:
-                raise ValueError("Unsupported file type")
-
-            docs = loader.load()
-        finally:
-            os.remove(tmp_path)
-
-        return docs
+            # Создаем SourceInput
+            source_input = self.extractor_factory.create_source_input(
+                data=data,
+                source_name=source_name,
+                metadata=source_metadata or {}
+            )
+            
+            # Извлекаем данные
+            extracted_data = self.extractor_factory.extract_from_source(
+                data=data,
+                source_name=source_name,
+                metadata=source_metadata
+            )
+            
+            # Создаем или обновляем KnowledgeNode
+            kb_node = self._create_or_update_knowledge_node(
+                agent_id=agent_id,
+                node_id=node_id,
+                source_name=source_name,
+                source_type=extracted_data.source_type,
+                source_data=source_metadata,
+                extractor_metadata=extracted_data.metadata
+            )
+            
+            # Разбиваем текст на чанки и создаем embeddings
+            self._create_embeddings_for_node(kb_node, extracted_data.text_content)
+            
+            return kb_node
+            
+        except Exception as e:
+            raise Exception(f"Error adding source {source_name}: {str(e)}")
 
     def add_document(self, agent_id: int, node_id: str, file: io.BytesIO, filename: str):
-        """Загрузка документа, создание KnowledgeNode (если надо) и эмбеддингов"""
+        """
+        Обратная совместимость для старого API.
+        Использует новую архитектуру.
+        """
+        return self.add_source(
+            agent_id=agent_id,
+            node_id=node_id,
+            data=file,
+            source_name=filename,
+            source_metadata={"upload_type": "file"}
+        )
 
-        # 1. Загружаем текст
-        docs = self._load_document(file, filename)
-        full_text = "\n".join([d.page_content for d in docs])
-
-        # 2. Проверяем / создаём KnowledgeNode
+    def add_url(self, agent_id: int, node_id: str, url: str, url_metadata: Optional[Dict[str, Any]] = None):
+        """
+        Добавляет веб-страницу как источник знаний.
+        
+        Args:
+            agent_id: ID агента
+            node_id: ID ноды в UI
+            url: URL веб-страницы
+            url_metadata: Дополнительные метаданные
+        """
+        metadata = url_metadata or {}
+        metadata.update({
+            "url": url,
+            "upload_type": "url"
+        })
+        
+        return self.add_source(
+            agent_id=agent_id,
+            node_id=node_id,
+            data=url,
+            source_name=url,
+            source_metadata=metadata
+        )
+    
+    def add_audio(self, agent_id: int, node_id: str, audio_file: io.BytesIO, filename: str, 
+                  audio_metadata: Optional[Dict[str, Any]] = None):
+        """
+        Добавляет аудио файл с транскрибацией.
+        
+        Args:
+            agent_id: ID агента
+            node_id: ID ноды в UI
+            audio_file: Аудио файл
+            filename: Имя файла
+            audio_metadata: Дополнительные метаданные
+        """
+        metadata = audio_metadata or {}
+        metadata.update({
+            "filename": filename,
+            "upload_type": "audio"
+        })
+        
+        return self.add_source(
+            agent_id=agent_id,
+            node_id=node_id,
+            data=audio_file,
+            source_name=filename,
+            source_metadata=metadata
+        )
+    
+    def _create_or_update_knowledge_node(self, agent_id: int, node_id: str, source_name: str,
+                                        source_type: str, source_data: Optional[Dict[str, Any]],
+                                        extractor_metadata: Dict[str, Any]) -> KnowledgeNode:
+        """
+        Создает новую или обновляет существующую ноду знаний.
+        """
         kb_node = (
             self.db.query(KnowledgeNode)
             .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
             .first()
         )
-        if not kb_node:
+        
+        if kb_node:
+            # Обновляем существующую ноду
+            kb_node.name = source_name
+            kb_node.source_type = source_type
+            kb_node.source_data = source_data
+            kb_node.extractor_metadata = extractor_metadata
+            
+            # Удаляем старые embeddings
+            self.db.query(KnowledgeEmbedding).filter(
+                KnowledgeEmbedding.kb_id == kb_node.id
+            ).delete()
+        else:
+            # Создаем новую ноду
             kb_node = KnowledgeNode(
                 agent_id=agent_id,
-                node_id=node_id,  # UI id
-                name=filename,
-                source_type="file"
+                node_id=node_id,
+                name=source_name,
+                source_type=source_type,
+                source_data=source_data,
+                extractor_metadata=extractor_metadata
             )
             self.db.add(kb_node)
-            self.db.commit()
-            self.db.refresh(kb_node)  # ✅ теперь kb_node.id доступен
-
+        
+        self.db.commit()
+        self.db.refresh(kb_node)
+        return kb_node
+    
+    def _create_embeddings_for_node(self, kb_node: KnowledgeNode, text_content: str):
+        """
+        Создает embeddings для текста.
+        """
+        # Разбиваем текст на чанки
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = splitter.split_text(full_text)
-
-        # 4. Создаем эмбеддинги
+        chunks = splitter.split_text(text_content)
+        
+        if not chunks:
+            return
+        
+        # Создаем embeddings
         vectors = self.embeddings_model.embed_documents(chunks)
-
-        # 5. Сохраняем чанки в knowledge_embeddings
+        
+        # Сохраняем в базу
         embeddings_to_add = [
             KnowledgeEmbedding(
                 kb_id=kb_node.id,
@@ -83,14 +196,12 @@ class KnowledgeService:
             )
             for idx, (chunk, vector) in enumerate(zip(chunks, vectors))
         ]
-
-        self.db.bulk_save_objects(embeddings_to_add)
-        self.db.commit()
-
-        return kb_node
-
-    def search_embeddings(self, agent_id: int, node_id: int, query: str, top_k: int = 5):
-        # Проверяем ноду
+        
+    
+    def search_embeddings(self, agent_id: int, node_id: str, query: str, top_k: int = 5):
+        """
+        Поиск по embeddings в конкретной ноде.
+        """
         kb_node = (
             self.db.query(KnowledgeNode)
             .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
@@ -100,10 +211,49 @@ class KnowledgeService:
             return []
 
         query_emb = self.embeddings_model.embed_query(query)
-
+        
+        # Простой поиск по косинусному сходству
         results = []
         for emb in kb_node.embeddings:
-            results.append(emb.text_chunk)
+            if emb.embedding is not None:
+                # Вычисляем косинусное сходство
+                similarity = np.dot(query_emb, emb.embedding) / (
+                    np.linalg.norm(query_emb) * np.linalg.norm(emb.embedding)
+                )
+                results.append((emb.id, emb.text_chunk, float(similarity)))
 
+        # Сортируем по сходству
         results.sort(key=lambda x: x[2], reverse=True)
         return results[:top_k]
+    
+    def get_source_info(self, agent_id: int, node_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Возвращает информацию об источнике знаний.
+        """
+        kb_node = (
+            self.db.query(KnowledgeNode)
+            .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
+            .first()
+        )
+        
+        if not kb_node:
+            return None
+        
+        return {
+            "id": kb_node.id,
+            "agent_id": kb_node.agent_id,
+            "node_id": kb_node.node_id,
+            "name": kb_node.name,
+            "source_type": kb_node.source_type,
+            "source_data": kb_node.source_data,
+            "extractor_metadata": kb_node.extractor_metadata,
+            "created_at": kb_node.created_at.isoformat() if kb_node.created_at else None,
+            "updated_at": kb_node.updated_at.isoformat() if kb_node.updated_at else None,
+            "embeddings_count": len(kb_node.embeddings)
+        }
+    
+    def get_supported_source_types(self) -> Dict[str, List[str]]:
+        """
+        Возвращает список поддерживаемых типов источников.
+        """
+        return self.extractor_factory.get_all_supported_types()

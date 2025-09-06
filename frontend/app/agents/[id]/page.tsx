@@ -37,6 +37,7 @@ interface NodeData {
   method?: string;
   params?: NodeParam[];
   missing_param_message?: string;
+  filename?: string; // Для knowledge нод - название загруженного файла
 }
 
 const nodeTypes = { custom: CustomNode };
@@ -52,6 +53,20 @@ export default function AgentEditorPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editNode, setEditNode] = useState<NodeData | null>(null);
+
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Функция для получения информации о knowledge ноде
+  const fetchKnowledgeInfo = async (agentId: string | string[], nodeId: string) => {
+    try {
+      const response = await apiFetch(`/knowledge/info/${agentId}/${nodeId}`);
+      return response;
+    } catch (err) {
+      console.log("Knowledge info not found for node:", nodeId);
+      return null;
+    }
+  };
+
 
   const onNodesChange = (changes: NodeChange[]) =>
     setNodes((nds) => applyNodeChanges(changes, nds));
@@ -88,7 +103,11 @@ export default function AgentEditorPage() {
         setAgentName(data.name);
 
         if (data.logic) {
-          const agentNodes: Node[] = data.logic.nodes.map((n: any, i: number) => {
+          const agentNodes: Node[] = [];
+          
+          // Проходим по всем нодам и создаем объекты
+          for (let i = 0; i < data.logic.nodes.length; i++) {
+            const n = data.logic.nodes[i];
             let paramsArray: NodeParam[] = [];
             if (n.type === "webhook" && n.params) {
               paramsArray = n.params.map((el: any) => ({
@@ -97,7 +116,16 @@ export default function AgentEditorPage() {
               }));
             }
 
-            return {
+            // Для knowledge нод получаем информацию о файле
+            let filename = undefined;
+            if (n.type === "knowledge") {
+              const knowledgeInfo = await fetchKnowledgeInfo(agentId, n.id);
+              if (knowledgeInfo) {
+                filename = knowledgeInfo.name;
+              }
+            }
+
+            agentNodes.push({
               id: n.id,
               type: "custom",
               data: {
@@ -108,10 +136,11 @@ export default function AgentEditorPage() {
                 url: n.url,
                 method: n.method,
                 missing_param_message: n.missing_param_message,
+                filename: filename,
               },
               position: n.position || { x: i * 200, y: 100 },
-            };
-          });
+            });
+          }
 
           const agentEdges: Edge[] = [];
           data.logic.nodes.forEach((n: any) => {
@@ -167,8 +196,34 @@ export default function AgentEditorPage() {
     openModal(newNode);
   };
 
-  const saveNode = () => {
-    if (!editNode) return;
+    const saveNode = async () => {
+      if (!editNode) return;
+
+      console.log("Сохраняем узел:", editNode.type);
+      // Если это knowledge-узел и есть файл — загружаем его на сервер
+      if (editNode.type === "knowledge" && selectedFile) {
+        console.log("123");
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+          const uploadResponse = await apiFetch(`/knowledge/upload/${agentId}/${editNode.id}`, {
+            method: "POST",
+            body: formData,
+          });
+          
+          // Обновляем filename в editNode после успешной загрузки
+          editNode.filename = uploadResponse.filename;
+          
+          alert("Файл успешно загружен!");
+        } catch (err) {
+          console.error(err);
+          alert("Ошибка при загрузке файла");
+          return; // прекращаем сохранение узла, если не удалось загрузить файл
+        }
+      };
+
+    // Обновляем ноды в состоянии
     setNodes((nds) => {
       const existing = nds.find((n) => n.id === editNode.id);
       if (existing) {
@@ -187,8 +242,10 @@ export default function AgentEditorPage() {
         },
       ];
     });
+
     setIsModalOpen(false);
   };
+
 
   const saveToServer = async () => {
     try {
@@ -452,6 +509,26 @@ export default function AgentEditorPage() {
                       </div>
                     </>
                   )}
+
+                  {editNode.type === "knowledge" && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-2 text-gray-800">Настройки Knowledge</h3>
+
+                      {/* Тут можно добавить upload input */}
+                      <label className="block mb-1 text-gray-800 mt-2">Файл знаний</label>
+                      <input
+                        type="file"
+                        className="w-full mb-2"
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            setSelectedFile(e.target.files?.[0] || null);
+                            console.log("Файл выбран для knowledge:", e.target.files[0]);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+
 
                   <div className="flex justify-end gap-2 mt-2">
                     <button

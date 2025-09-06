@@ -34,12 +34,7 @@ def get_session(session_id: int, db: Session = Depends(get_db), current_user: Us
 
 
 @router.post("/{session_id}/message", response_model=MessageOut)
-def send_message(
-    session_id: int,
-    msg: MessageIn,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     # Получаем сессию
     db_session = db.query(SessionModel).filter(
         SessionModel.id == session_id,

@@ -4,9 +4,10 @@ import os
 from sqlalchemy.orm import Session
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
 
-from app.models.knowledge_base import KnowledgeBase, KnowledgeEmbedding
+from app.models.knowledge_base import KnowledgeNode, KnowledgeEmbedding
 import numpy as np
 
 
@@ -16,6 +17,7 @@ class KnowledgeService:
         self.embeddings_model = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
+
 
     def _load_document(self, file: io.BytesIO, filename: str):
         """Сохраняем файл во временную директорию и подгружаем через лоадер"""
@@ -37,29 +39,34 @@ class KnowledgeService:
 
             docs = loader.load()
         finally:
-            os.remove(tmp_path)  # очищаем tmp-файл
+            os.remove(tmp_path)
 
         return docs
 
-    def add_document(self, agent_id: int, file: io.BytesIO, filename: str) -> KnowledgeBase:
-        """Загрузка документа, создание базы знаний и эмбеддингов"""
+    def add_document(self, agent_id: int, node_id: str, file: io.BytesIO, filename: str):
+        """Загрузка документа, создание KnowledgeNode (если надо) и эмбеддингов"""
 
         # 1. Загружаем текст
         docs = self._load_document(file, filename)
         full_text = "\n".join([d.page_content for d in docs])
 
-        # 2. Создаем запись в knowledge_base
-        kb = KnowledgeBase(
-            agent_id=agent_id,
-            name=filename,
-            type=filename.split(".")[-1],
-            content=full_text
+        # 2. Проверяем / создаём KnowledgeNode
+        kb_node = (
+            self.db.query(KnowledgeNode)
+            .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
+            .first()
         )
-        self.db.add(kb)
-        self.db.commit()
-        self.db.refresh(kb)
+        if not kb_node:
+            kb_node = KnowledgeNode(
+                agent_id=agent_id,
+                node_id=node_id,  # UI id
+                name=filename,
+                source_type="file"
+            )
+            self.db.add(kb_node)
+            self.db.commit()
+            self.db.refresh(kb_node)  # ✅ теперь kb_node.id доступен
 
-        # 3. Разбиваем текст на чанки
         splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = splitter.split_text(full_text)
 
@@ -67,46 +74,36 @@ class KnowledgeService:
         vectors = self.embeddings_model.embed_documents(chunks)
 
         # 5. Сохраняем чанки в knowledge_embeddings
-        for idx, (chunk, vector) in enumerate(zip(chunks, vectors)):
-            emb = KnowledgeEmbedding(
-                kb_id=kb.id,
+        embeddings_to_add = [
+            KnowledgeEmbedding(
+                kb_id=kb_node.id,
                 chunk_index=idx,
                 embedding=vector,
                 text_chunk=chunk
             )
-            self.db.add(emb)
-
-        self.db.commit()
-        return kb
-
-    def search_embeddings(self, agent_id: int, query: str, top_k: int = 5):
-        """Поиск по эмбеддингам базы знаний"""
-
-        # Получаем все эмбеддинги агента
-        embeddings_list = (
-            self.db.query(KnowledgeEmbedding)
-            .join(KnowledgeBase)
-            .filter(KnowledgeBase.agent_id == agent_id)
-            .all()
-        )
-
-        if not embeddings_list:
-            return []
-
-        # Генерируем embedding запроса
-        query_vector = self.embeddings_model.embed_query(query)
-
-        # Косинусное сходство
-        def cosine_sim(a, b):
-            a = np.array(a)
-            b = np.array(b)
-            return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
-
-        scored = [
-            (emb.id, emb.text_chunk, cosine_sim(query_vector, emb.embedding))
-            for emb in embeddings_list
+            for idx, (chunk, vector) in enumerate(zip(chunks, vectors))
         ]
 
-        # Сортируем и берем top_k
-        scored.sort(key=lambda x: x[2], reverse=True)
-        return scored[:top_k]
+        self.db.bulk_save_objects(embeddings_to_add)
+        self.db.commit()
+
+        return kb_node
+
+    def search_embeddings(self, agent_id: int, node_id: int, query: str, top_k: int = 5):
+        # Проверяем ноду
+        kb_node = (
+            self.db.query(KnowledgeNode)
+            .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
+            .first()
+        )
+        if not kb_node:
+            return []
+
+        query_emb = self.embeddings_model.embed_query(query)
+
+        results = []
+        for emb in kb_node.embeddings:
+            results.append(emb.text_chunk)
+
+        results.sort(key=lambda x: x[2], reverse=True)
+        return results[:top_k]

@@ -4,26 +4,26 @@ from pgvector.sqlalchemy import Vector
 from app.db import Base
 
 
-class KnowledgeBase(Base):
-    __tablename__ = "knowledge_base"
+class KnowledgeNode(Base):
+    __tablename__ = "knowledge_node"
 
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agent.id", ondelete="CASCADE"))
-    name = Column(String, nullable=False)
-    type = Column(String, nullable=False)  # pdf, docx, txt
-    content = Column(Text, nullable=False)
+    node_id = Column(String, nullable=False)  # id ноды из конструктора (UI)
+    name = Column(String, nullable=False)     # удобное имя
+    source_type = Column(String, nullable=False)  # file, web, api и т.д.
     created_at = Column(TIMESTAMP, server_default=func.now())
 
-    embeddings = relationship("KnowledgeEmbedding", back_populates="knowledge_base")
+    embeddings = relationship("KnowledgeEmbedding", back_populates="knowledge_node", cascade="all, delete-orphan")
 
 
 class KnowledgeEmbedding(Base):
     __tablename__ = "knowledge_embeddings"
 
     id = Column(Integer, primary_key=True, index=True)
-    kb_id = Column(Integer, ForeignKey("knowledge_base.id", ondelete="CASCADE"))
+    kb_id = Column(Integer, ForeignKey("knowledge_node.id", ondelete="CASCADE"), nullable=False)
     chunk_index = Column(Integer, nullable=False)
-    embedding = Column(Vector(384))  # ✅ теперь 384
+    embedding = Column(Vector(384))
     text_chunk = Column(Text, nullable=False)
 
-    knowledge_base = relationship("KnowledgeBase", back_populates="embeddings")
+    knowledge_node = relationship("KnowledgeNode", back_populates="embeddings")

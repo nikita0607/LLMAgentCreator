@@ -6,10 +6,20 @@ interface CustomNodeProps {
   id: string;
   selected: boolean;
   isConnectable: boolean;
-  onOpenModal: (data: any) => void;
+  isStartNode?: boolean; // Add prop to indicate if this is the start node
 }
 
-export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
+export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) => {
+  // Helper function to get node type display name
+  const getNodeTypeDisplayName = (nodeType: string) => {
+    switch (nodeType) {
+      case 'knowledge': return 'RAG Module';
+      case 'conditional_llm': return 'LLM Module';
+      case 'webhook': return 'Webhook';
+      default: return nodeType;
+    }
+  };
+
   // Helper function to get source type icon
   const getSourceTypeIcon = (sourceType: string) => {
     switch (sourceType) {
@@ -48,10 +58,10 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
   // Calculate dynamic height for conditional LLM nodes
   const getNodeHeight = () => {
     if (data.type === "conditional_llm" && data.branches && data.branches.length > 0) {
-      const baseHeight = 80; // Base height for title and content
+      const baseHeight = 60; // Base height for title and content
       const branchesHeight = data.branches.length * 28; // Each branch takes ~28px
       const defaultBranchHeight = data.default_branch ? 28 : 0;
-      const paddingHeight = 20; // Extra padding
+      const paddingHeight = 10; // Minimal padding
       return baseHeight + branchesHeight + defaultBranchHeight + paddingHeight;
     }
     return undefined; // Let CSS handle height for other node types
@@ -59,15 +69,28 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
 
   return (
     <div
-      className="bg-white border p-2 rounded shadow relative cursor-pointer min-w-[150px]"
-      onClick={() => onOpenModal(data)}
+      className={`${isStartNode 
+        ? 'bg-green-50 border-green-500 border-2 shadow-lg' 
+        : 'bg-white border'} p-2 rounded shadow relative min-w-[150px]`}
       style={{ minHeight: getNodeHeight() }}
     >
-      <div className="font-medium">{data.label}</div>
+      {/* Start node indicator */}
+      {isStartNode && (
+        <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+          START
+        </div>
+      )}
+      
+      <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+        isStartNode ? 'text-green-700' : 'text-blue-600'
+      }`}>
+        {getNodeTypeDisplayName(data.type)}
+      </div>
+      <div className="font-medium text-black">{data.label}</div>
       
       {/* Display source information for knowledge nodes */}
       {data.type === "knowledge" && (
-        <div className="text-xs text-gray-500 mt-1 space-y-1">
+        <div className="text-xs text-black mt-1 space-y-1">
           <div className="flex items-center space-x-1">
             <span>{getSourceTypeIcon(data.source_type || 'file')}</span>
             <span className="italic">
@@ -104,7 +127,7 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
 
       {/* Display conditional branches for conditional_llm nodes */}
       {data.type === "conditional_llm" && data.branches && data.branches.length > 0 && (
-        <div className="text-xs text-gray-500 mt-1 space-y-1">
+        <div className="text-xs text-black mt-1 space-y-1">
           <div className="font-medium text-purple-600">Conditional Branches:</div>
           {data.branches.map((branch, index) => (
             <div 
@@ -155,11 +178,11 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
           {data.branches.map((branch, index) => {
             // Calculate position to align with each branch preview item
             // Base offset accounts for the node title, "Conditional Branches:" title, and spacing
-            const titleHeight = 32; // Node title height
-            const branchesHeaderHeight = 20; // "Conditional Branches:" header height
+            const titleHeight = 50; // Node title height + margin
+            const branchesHeaderHeight = 18; // "Conditional Branches:" header height
             const baseOffset = titleHeight + branchesHeaderHeight;
-            const branchItemHeight = 28; // Height of each branch preview item including margins
-            const branchCenterOffset = 14; // Center of each branch item
+            const branchItemHeight = 30; // Height of each branch preview item including margins
+            const branchCenterOffset = 16; // Center of each branch item
             const topPosition = baseOffset + (index * branchItemHeight) + branchCenterOffset;
             
             return (
@@ -183,7 +206,7 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
               position={Position.Right} 
               id="default"
               style={{ 
-                top: `${32 + 20 + (data.branches!.length * 28) + 14}px`, // titleHeight + branchesHeaderHeight + branches + centerOffset
+                top: `${50 + 18 + (data.branches!.length * 30) + 16}px`, // titleHeight + branchesHeaderHeight + branches + centerOffset
                 background: '#888',
                 position: 'absolute',
                 right: '-8px'

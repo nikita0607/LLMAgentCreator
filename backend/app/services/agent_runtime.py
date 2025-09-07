@@ -92,23 +92,24 @@ def extract_params_via_llm(user_input: dict[str], params: dict, system_prompt: s
 
 
 def get_node(nodes: dict[str, dict], node_id):
-    for n_id in nodes:
-        if n_id == node_id:
-            return nodes[n_id]
+    """Get node by ID from nodes dictionary."""
+    if node_id is None:
         return None
-    return None
+    return nodes.get(node_id)
 
 
-def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optional[dict[str]] = None,
+def process_node(nodes: dict[str, dict], node: dict, agent_id: int, user_input: Optional[dict[str]] = None,
                  system_prompt: str = "", voice_id: str = "", conversation_id: Optional[str] = None):
     """
-    Обрабатывает узел drag&drop (message / webhook) и возвращает:
+    Processes drag&drop node (message / webhook) and returns:
     {
         reply: str,
         action: Optional[dict],
         next_node: Optional[str],
         conversation_id: Optional[str]
     }
+    
+    Allows infinite loops for continuous conversation with agents.
     """
     print("HERE", node)
     if node["type"] == "message":
@@ -139,12 +140,15 @@ def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optio
 
         try:
             result = call_webhook(node["url"], found_params)
-            next_node = get_node(nodes, node.get("on_success"))
-            print("ASDASD", user_input)
-            user_input['result'] = result
-            next_call = process_node(nodes, next_node, user_input, system_prompt, voice_id, conversation_id)
-
-            return next_call
+            # Сохраняем результат webhook в user_input для дальнейшего использования
+            if user_input:
+                user_input['result'] = result
+            
+            return {
+                "reply": f"Webhook {node.get('action', 'call')} executed successfully: {str(result)[:200]}{'...' if len(str(result)) > 200 else ''}",
+                "next_node": node.get("on_success"),
+                "conversation_id": conversation_id
+            }
         except Exception as e:
             return {
                 "reply": f"Ошибка вызова {node['action']}: {str(e)}",

@@ -51,8 +51,6 @@ interface NodeData {
 
 // Use ExtendedNodeData for the actual node data with knowledge properties
 
-const nodeTypes = { custom: CustomNode };
-
 export default function AgentEditorPage() {
   const params = useParams();
   const agentId = params.id as string;
@@ -61,6 +59,7 @@ export default function AgentEditorPage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [agentName, setAgentName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [startNodeId, setStartNodeId] = useState<string | null>(null); // Track start node
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editNode, setEditNode] = useState<ExtendedNodeData | null>(null);
@@ -68,9 +67,19 @@ export default function AgentEditorPage() {
   // Legacy file upload state for backward compatibility
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{x: number, y: number, nodeId: string} | null>(null);
+  
   // Knowledge source management
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+
+  // Custom node component wrapper that includes start node info
+  const CustomNodeWrapper = (props: any) => {
+    return <CustomNode {...props} isStartNode={props.id === startNodeId} />;
+  };
+
+  const nodeTypes = { custom: CustomNodeWrapper };
 
   // Function to get knowledge node information with enhanced data
   const fetchKnowledgeInfo = async (agentId: string, nodeId: string): Promise<ExtendedNodeData | null> => {
@@ -114,6 +123,24 @@ export default function AgentEditorPage() {
   };
   const onEdgesDelete = (deleted: Edge[]) => {
     setEdges((eds) => eds.filter((e) => !deleted.find((d) => d.id === e.id)));
+  };
+
+  const onNodeContextMenu = (event: React.MouseEvent, node: Node) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      nodeId: node.id
+    });
+  };
+
+  const setAsStartNode = (nodeId: string) => {
+    setStartNodeId(nodeId);
+    setContextMenu(null);
+  };
+
+  const closeContextMenu = () => {
+    setContextMenu(null);
   };
 
   const openModal = async (node: Node) => {
@@ -259,6 +286,7 @@ export default function AgentEditorPage() {
 
           setNodes(agentNodes);
           setEdges(agentEdges);
+          setStartNodeId(data.logic.start_node || null); // Load start node
         }
       } catch (err) {
         console.error(err);
@@ -268,6 +296,18 @@ export default function AgentEditorPage() {
     }
     loadAgent();
   }, [agentId]);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu) {
+        setContextMenu(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [contextMenu]);
 
   // Knowledge source upload handlers
   const handleKnowledgeUploadSuccess = async (result: SourceUploadResult) => {
@@ -385,7 +425,22 @@ export default function AgentEditorPage() {
       }, {});
 
       const allTargets = new Set(edges.map((e) => e.target));
-      const startNode = nodes.find((n) => !allTargets.has(n.id));
+      let startNode = null;
+      
+      // Use manually selected start node if available
+      if (startNodeId && nodes.find(n => n.id === startNodeId)) {
+        startNode = nodes.find(n => n.id === startNodeId);
+        console.log("Using manually selected start node:", startNode?.id);
+      } else {
+        // Fallback to automatic detection
+        startNode = nodes.find((n) => !allTargets.has(n.id));
+        
+        // If no start node found (all nodes are targets in a cycle), use the first node
+        if (!startNode && nodes.length > 0) {
+          startNode = nodes[0];
+          console.log("No natural start node found (likely cyclic graph), using first node:", startNode.id);
+        }
+      }
 
       const logicNodes = nodes.map((n) => {
         const data = n.data as NodeData;
@@ -446,6 +501,9 @@ export default function AgentEditorPage() {
       };
 
       console.log("SAVE PAYLOAD:", payload);
+      console.log("Start node:", startNode?.id);
+      console.log("Nodes count:", logicNodes.length);
+      console.log("Node IDs:", logicNodes.map(n => n.id));
       await apiFetch(`/agents/${agentId}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -463,9 +521,16 @@ export default function AgentEditorPage() {
     <ReactFlowProvider>
       <div className="h-screen flex flex-col bg-gray-100 p-4">
         <div className="flex justify-between items-center mb-2">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Редактор агента: {agentName}
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Редактор агента: {agentName}
+            </h1>
+            {startNodeId && (
+              <p className="text-sm text-green-600 mt-1">
+                🚀 Start Node: <span className="font-mono bg-green-100 px-2 py-1 rounded">{startNodeId}</span>
+              </p>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
@@ -495,11 +560,38 @@ export default function AgentEditorPage() {
             event.stopPropagation();
             openModal(node);
           }}
+          onNodeContextMenu={onNodeContextMenu}
+          onPaneClick={closeContextMenu}
           nodeTypes={nodeTypes}
         >
           <MiniMap />
           <Controls />
           <Background />
+          
+          {/* Context Menu */}
+          {contextMenu && (
+            <div
+              className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-1 min-w-[150px]"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+              onClick={closeContextMenu}
+            >
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAsStartNode(contextMenu.nodeId);
+                }}
+              >
+                <span className="text-green-600">🚀</span>
+                Set as Start Node
+              </button>
+              {startNodeId === contextMenu.nodeId && (
+                <div className="px-4 py-2 text-sm text-green-600 font-medium">
+                  ✓ Current Start Node
+                </div>
+              )}
+            </div>
+          )}
         </ReactFlow>
 
         {/* --- Модалка --- */}

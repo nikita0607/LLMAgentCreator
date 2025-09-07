@@ -51,14 +51,26 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     # Подготовка логики
     logic = agent.logic or {}
     nodes = {n["id"]: n for n in logic.get("nodes", [])}
-    node_id = db_session.current_node or logic.get("start_node")
+    
+    # Try to get current node, fallback to start node, then to first available node
+    node_id = None
+    if db_session.current_node and db_session.current_node in nodes:
+        node_id = db_session.current_node
+    elif logic.get("start_node") and logic.get("start_node") in nodes:
+        node_id = logic.get("start_node")
+    elif nodes:
+        # If all else fails, use the first available node
+        node_id = next(iter(nodes))
 
-    if not node_id or node_id not in nodes:
-        raise HTTPException(status_code=400, detail="Agent has no valid logic")
+    if not node_id:
+        raise HTTPException(status_code=400, detail=f"No nodes found in agent logic. Logic: {logic}")
+    
+    if node_id not in nodes:
+        raise HTTPException(status_code=400, detail=f"Node '{node_id}' not found in nodes: {list(nodes.keys())}")
 
     current_node = nodes[node_id]
-
-    # Вызов process_node с использованием conversation_id
+    
+    # Call process_node without cycle detection - allow infinite loops for continuous conversation
     result = process_node(
         nodes,
         current_node,
@@ -68,7 +80,7 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
         voice_id=agent.voice_id,
         conversation_id=db_session.conversation_id if hasattr(db_session, "conversation_id") else None
     )
-
+    
     # Сохраняем сообщение пользователя
     user_msg = SessionMessage(
         session_id=db_session.id,
@@ -86,12 +98,16 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     )
     db.add(agent_msg)
 
-    # Обновляем текущий узел
+    # Update current node - allow moving between nodes freely for infinite conversations
     next_node = result.get("next_node")
     if next_node:
-        db_session.current_node = next_node
+        if next_node not in nodes:
+            # Don't update to invalid node, stay on current node
+            pass
+        else:
+            db_session.current_node = next_node
 
-    # Сохраняем conversation_id, чтобы продолжить диалог с LLM
+    # Save conversation_id to continue LLM dialog
     if "conversation_id" in result:
         db_session.conversation_id = result["conversation_id"]
 

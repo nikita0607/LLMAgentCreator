@@ -2,19 +2,21 @@ from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 
-# ---------- KnowledgeBase ----------
 
-class KnowledgeBaseCreate(BaseModel):
+# ---------- KnowledgeNode ----------
+class KnowledgeNodeCreate(BaseModel):
+    agent_id: int
+    node_id: str
     name: str
-    type: str
-    content: str
+    source_type: str
 
-class KnowledgeBaseRead(BaseModel):
+
+class KnowledgeNodeRead(BaseModel):
     id: int
     agent_id: int
+    node_id: str
     name: str
-    type: str
-    content: str
+    source_type: str
     created_at: datetime
 
     class Config:
@@ -22,16 +24,16 @@ class KnowledgeBaseRead(BaseModel):
 
 
 # ---------- KnowledgeEmbedding ----------
-
 class KnowledgeEmbeddingCreate(BaseModel):
-    kb_id: int
+    node_id: str
     chunk_index: int
     embedding: List[float]
     text_chunk: str
 
+
 class KnowledgeEmbeddingRead(BaseModel):
     id: int
-    kb_id: int
+    node_id: str
     chunk_index: int
     text_chunk: str
 

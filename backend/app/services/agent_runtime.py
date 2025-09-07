@@ -1,11 +1,13 @@
 import json
 from typing import Optional
 
-import requests
-
+from app.services.knowledge_service import KnowledgeService
 from app.services.webhook import call_webhook
 from app.services.elevenlabs_chat import chat_with_agent
-from app.api.knowledge_base import search_knowledge
+
+from app.db import get_db
+from sqlalchemy.orm import Session
+
 
 import re
 
@@ -89,10 +91,12 @@ def extract_params_via_llm(user_input: dict[str], params: dict, system_prompt: s
     return found_params, missing, conversation_id
 
 
-def get_node(nodes: dict[str, dict], node_id) -> dict:
+def get_node(nodes: dict[str, dict], node_id):
     for n_id in nodes:
         if n_id == node_id:
             return nodes[n_id]
+        return None
+    return None
 
 
 def process_node(
@@ -164,28 +168,20 @@ def process_node(
             }
 
     if node["type"] == "knowledge":
-        search_request = {
-            "agent_id": agent_id,
-            "query": user_input["user_text"],
-            "top_k": 5
-        }
+        db: Session = next(get_db())
+        service = KnowledgeService(db)
 
-        print(search_request)
+        query = user_input["user_text"]
+        node_id = node["id"]
 
-        response = requests.post(
-            f"http://localhost:8000/knowledge/search",
-            json=search_request,
-            headers={"Content-Type": "application/json"}
-        )
+        results = service.search_embeddings(agent_id, node_id, query, top_k=5)
 
         reply = ""
-
-        for embedding in response.json():
-            reply += f"{embedding['text_chunk']} \n"
-
+        for embedding in results:
+            reply += f"{embedding}\n"
 
         return {
-            "reply": reply,
+            "reply": reply.strip(),
             "next_node": node.get("next"),
             "conversation_id": conversation_id
         }

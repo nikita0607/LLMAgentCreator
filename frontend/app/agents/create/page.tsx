@@ -30,7 +30,7 @@ export default function CreateAgentPage() {
 
   return (
     <div className="flex flex-col justify-center items-center p-6 bg-gray-100 min-h-screen space-y-6">
-      {!agentId ? (
+      {!agentId && (
         <form onSubmit={handleCreate} className="bg-white p-6 rounded shadow-md w-full max-w-lg space-y-4">
           <h1 className="text-2xl font-bold mb-4 text-gray-900">Создать агента</h1>
           {error && <div className="text-red-600">{error}</div>}
@@ -68,11 +68,6 @@ export default function CreateAgentPage() {
             Создать
           </button>
         </form>
-      ) : (
-        <div className="w-full max-w-lg">
-          <h2 className="text-xl font-semibold mb-4">Загрузка базы знаний для агента</h2>
-          <KnowledgeUpload agentId={agentId} />
-        </div>
       )}
     </div>
   );

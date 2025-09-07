@@ -21,6 +21,11 @@ import { apiFetch } from "@/lib/api";
 import { Dialog } from "@headlessui/react";
 import { CustomNode } from "./CustomNode";
 import { v4 as uuidv4 } from "uuid";
+import { KnowledgeSourceSelector } from "../../../components/knowledge";
+import { KnowledgeApi } from "../../../lib/knowledgeApi";
+import { ExtendedNodeData, SourceUploadResult } from "../../../types/knowledge";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
+import { LoadingSpinner } from "../../../components/LoadingSpinner";
 
 interface NodeParam {
   id: string;
@@ -38,13 +43,17 @@ interface NodeData {
   method?: string;
   params?: NodeParam[];
   missing_param_message?: string;
+  // Legacy filename property for backward compatibility
+  filename?: string;
 }
+
+// Use ExtendedNodeData for the actual node data with knowledge properties
 
 const nodeTypes = { custom: CustomNode };
 
 export default function AgentEditorPage() {
   const params = useParams();
-  const agentId = params.id;
+  const agentId = params.id as string;
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -52,7 +61,40 @@ export default function AgentEditorPage() {
   const [loading, setLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editNode, setEditNode] = useState<NodeData | null>(null);
+  const [editNode, setEditNode] = useState<ExtendedNodeData | null>(null);
+
+  // Legacy file upload state for backward compatibility
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Knowledge source management
+  const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+
+  // Function to get knowledge node information with enhanced data
+  const fetchKnowledgeInfo = async (agentId: string, nodeId: string): Promise<ExtendedNodeData | null> => {
+    try {
+      const knowledgeInfo = await KnowledgeApi.getKnowledgeInfo(agentId, nodeId);
+      if (knowledgeInfo) {
+        return {
+          id: nodeId,
+          label: knowledgeInfo.name || 'Knowledge Node',
+          type: 'knowledge',
+          source_type: knowledgeInfo.source_type,
+          source_name: knowledgeInfo.name,
+          source_metadata: knowledgeInfo.source_data,
+          extractor_metadata: knowledgeInfo.extractor_metadata,
+          embeddings_count: knowledgeInfo.embeddings_count,
+          updated_at: knowledgeInfo.updated_at,
+          // Legacy filename for backward compatibility
+          filename: knowledgeInfo.name
+        };
+      }
+    } catch (err) {
+      console.log("Knowledge info not found for node:", nodeId);
+    }
+    return null;
+  };
+
 
   const onNodesChange = (changes: NodeChange[]) =>
     setNodes((nds) => applyNodeChanges(changes, nds));
@@ -72,13 +114,20 @@ export default function AgentEditorPage() {
     setEdges((eds) => eds.filter((e) => !deleted.find((d) => d.id === e.id)));
   };
 
-  const openModal = (node: Node) => {
-    const fullNode = nodes.find((n) => n.id === node.id);
-    if (fullNode) {
-      setEditNode({ ...fullNode.data, id: fullNode.id });
+  const openModal = async (node: Node) => {
+    if (node.data.type === 'knowledge') {
+      // Load enhanced knowledge data
+      const knowledgeData = await fetchKnowledgeInfo(agentId, node.id);
+      if (knowledgeData) {
+        setEditNode(knowledgeData);
+      } else {
+        // Fallback to basic node data if knowledge info is not available
+        setEditNode({ ...node.data, id: node.id } as ExtendedNodeData);
+      }
     } else {
-      setEditNode({ ...node.data, id: node.id });
+      setEditNode({ ...node.data, id: node.id } as ExtendedNodeData);
     }
+    setKnowledgeError(null);
     setIsModalOpen(true);
   };
 
@@ -89,7 +138,11 @@ export default function AgentEditorPage() {
         setAgentName(data.name);
 
         if (data.logic) {
-          const agentNodes: Node[] = data.logic.nodes.map((n: any, i: number) => {
+          const agentNodes: Node[] = [];
+
+          // Проходим по всем нодам и создаем объекты
+          for (let i = 0; i < data.logic.nodes.length; i++) {
+            const n = data.logic.nodes[i];
             let paramsArray: NodeParam[] = [];
             if (n.type === "webhook" && n.params) {
               paramsArray = n.params.map((el: any) => ({
@@ -98,21 +151,41 @@ export default function AgentEditorPage() {
               }));
             }
 
-            return {
+            // For knowledge nodes, get enhanced information
+            let nodeData: any = {
+              label: n.text || n.name || "Node",
+              type: n.type,
+              params: paramsArray,
+              action: n.action,
+              url: n.url,
+              method: n.method,
+              missing_param_message: n.missing_param_message,
+            };
+
+            if (n.type === "knowledge") {
+              const knowledgeData = await fetchKnowledgeInfo(agentId, n.id);
+              if (knowledgeData) {
+                // Merge knowledge data with base node data
+                nodeData = {
+                  ...nodeData,
+                  source_type: knowledgeData.source_type,
+                  source_name: knowledgeData.source_name,
+                  source_metadata: knowledgeData.source_metadata,
+                  extractor_metadata: knowledgeData.extractor_metadata,
+                  embeddings_count: knowledgeData.embeddings_count,
+                  updated_at: knowledgeData.updated_at,
+                  filename: knowledgeData.source_name, // Legacy compatibility
+                };
+              }
+            }
+
+            agentNodes.push({
               id: n.id,
               type: "custom",
-              data: {
-                label: n.text || n.name || "Node",
-                type: n.type,
-                params: paramsArray,
-                action: n.action,
-                url: n.url,
-                method: n.method,
-                missing_param_message: n.missing_param_message,
-              },
+              data: nodeData,
               position: n.position || { x: i * 200, y: 100 },
-            };
-          });
+            });
+          }
 
           const agentEdges: Edge[] = [];
           data.logic.nodes.forEach((n: any) => {
@@ -156,20 +229,90 @@ export default function AgentEditorPage() {
     loadAgent();
   }, [agentId]);
 
+  // Knowledge source upload handlers
+  const handleKnowledgeUploadSuccess = async (result: SourceUploadResult) => {
+    setKnowledgeLoading(true);
+    try {
+      // Reload knowledge data for the node
+      if (editNode) {
+        const updatedKnowledgeData = await fetchKnowledgeInfo(agentId, editNode.id);
+        if (updatedKnowledgeData) {
+          setEditNode(updatedKnowledgeData);
+        }
+
+        // Update the node in the graph
+        setNodes((nds) =>
+          nds.map((n) => {
+            if (n.id === editNode.id && updatedKnowledgeData) {
+              return {
+                ...n,
+                data: updatedKnowledgeData
+              };
+            }
+            return n;
+          })
+        );
+
+        setKnowledgeError(null);
+        alert(`Successfully added ${result.source_type} source!`);
+      }
+    } catch (error) {
+      setKnowledgeError(error instanceof Error ? error.message : 'Failed to update node');
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  };
+
+  const handleKnowledgeUploadError = (error: string) => {
+    setKnowledgeError(error);
+    setKnowledgeLoading(false);
+  };
+
   const addNode = () => {
     const newId = uuidv4();
     const newNode: Node = {
       id: newId,
       type: "custom",
-      data: { id: newId, label: "Новый узел", type: "message", params: [] },
+      data: { id: newId, label: "New Node", type: "message", params: [] } as ExtendedNodeData,
       position: { x: nodes.length, y: 100 },
     };
     setNodes((prev) => [...prev, newNode]);
     openModal(newNode);
   };
-
-  const saveNode = () => {
+  const saveNode = async () => {
     if (!editNode) return;
+
+    console.log("Saving node:", editNode.type);
+
+    // For knowledge nodes, we don't need to handle file upload here anymore
+    // The KnowledgeSourceSelector component handles uploads directly
+
+    // Legacy file upload support for backward compatibility
+    if (editNode.type === "knowledge" && selectedFile) {
+      console.log("Legacy file upload");
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      try {
+        const uploadResponse = await apiFetch(`/knowledge/upload/${agentId}/${editNode.id}`, {
+          method: "POST",
+          body: formData,
+        });
+
+        // Update filename in editNode after successful upload
+        editNode.filename = uploadResponse.filename;
+        editNode.source_name = uploadResponse.filename;
+        editNode.source_type = 'file';
+
+        alert("File uploaded successfully!");
+      } catch (err) {
+        console.error(err);
+        alert("Error uploading file");
+        return; // Stop saving node if file upload failed
+      }
+    }
+
+    // Update nodes in state
     setNodes((nds) => {
       const existing = nds.find((n) => n.id === editNode.id);
       if (existing) {
@@ -188,8 +331,10 @@ export default function AgentEditorPage() {
         },
       ];
     });
+
     setIsModalOpen(false);
   };
+
 
   const saveToServer = async () => {
     try {
@@ -213,7 +358,7 @@ export default function AgentEditorPage() {
         if (data.type === "message" || data.type === "knowledge") {
           const out = outgoing[n.id]?.[0];
           if (out) base.next = out.target;
-        } 
+        }
 
         if (data.type === "webhook") {
           if (data.action) base.action = data.action;
@@ -263,26 +408,12 @@ export default function AgentEditorPage() {
             Редактор агента: {agentName}
           </h1>
           <div className="flex gap-2">
-            <Link
-              href="/"
-              className="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300"
-            >
-              К списку агентов
-            </Link>
-            <Link
-              href={`/agents/${String(agentId)}/chat`}
-              className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600"
-            >
-              В чат
-            </Link>
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               onClick={addNode}
             >
               Добавить узел
             </button>
-
-
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
               onClick={saveToServer}
@@ -467,6 +598,90 @@ export default function AgentEditorPage() {
                       </div>
                     </>
                   )}
+
+                  {editNode.type === "knowledge" && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-4 text-gray-800">Knowledge Source Configuration</h3>
+
+                      {/* Show current source info if available */}
+                      {editNode.source_type && editNode.source_name && (
+                        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">
+                              {editNode.source_type === 'web' ? '🌐' :
+                               editNode.source_type === 'audio' ? '🎵' : '📄'}
+                            </span>
+                            <div>
+                              <div className="font-medium text-green-800">
+                                Current Source: {editNode.source_name}
+                              </div>
+                              <div className="text-sm text-green-600">
+                                Type: {editNode.source_type} •
+                                {editNode.embeddings_count || 0} chunks •
+                                {editNode.updated_at ?
+                                  `Updated: ${new Date(editNode.updated_at).toLocaleDateString()}` :
+                                  'Recently added'
+                                }
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Knowledge Error Display */}
+                      {knowledgeError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800">
+                          {knowledgeError}
+                        </div>
+                      )}
+
+                      {/* Knowledge Source Selector */}
+                      <ErrorBoundary
+                        fallback={
+                          <div className="p-4 border border-yellow-300 rounded-lg bg-yellow-50">
+                            <p className="text-yellow-800">Unable to load knowledge source options. Please try refreshing the page.</p>
+                          </div>
+                        }
+                      >
+                        {knowledgeLoading ? (
+                          <LoadingSpinner size="md" text="Processing..." className="py-4" />
+                        ) : (
+                          <KnowledgeSourceSelector
+                            agentId={agentId}
+                            nodeId={editNode.id}
+                            onUploadSuccess={handleKnowledgeUploadSuccess}
+                            onError={handleKnowledgeUploadError}
+                          />
+                        )}
+                      </ErrorBoundary>
+
+                      {/* Legacy file upload for backward compatibility */}
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <details className="group">
+                          <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+                            📁 Legacy File Upload (for backward compatibility)
+                          </summary>
+                          <div className="mt-2">
+                            <label className="block mb-1 text-gray-800 text-sm">Legacy File Upload</label>
+                            <input
+                              type="file"
+                              className="w-full mb-2 text-sm"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                  setSelectedFile(e.target.files?.[0] || null);
+                                  console.log("File selected for legacy upload:", e.target.files[0]);
+                                }
+                              }}
+                            />
+                            <p className="text-xs text-gray-500">
+                              Note: Use the source selector above for better experience
+                            </p>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  )}
+
 
                   <div className="flex justify-end gap-2 mt-2">
                     <button

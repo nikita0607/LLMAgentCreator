@@ -24,10 +24,15 @@ class NodeParam(BaseModel):
     description: str
     value: Optional[str] = None
 
+class ConditionalBranch(BaseModel):
+    id: str
+    condition_text: str  # Текстовое описание условия
+    next_node: Optional[str] = None
+
 class NodeLogic(BaseModel):
     id: str
     text: str
-    type: str  # "message" или "webhook"
+    type: str  # "message", "webhook", "knowledge", "conditional_llm"
     next: Optional[str] = None
     action: Optional[str] = None
     url: Optional[str] = None
@@ -36,6 +41,9 @@ class NodeLogic(BaseModel):
     missing_param_message: Optional[str] = None
     on_success: Optional[str] = None
     on_failure: Optional[str] = None
+    # Новые поля для conditional_llm
+    branches: Optional[List[ConditionalBranch]] = []
+    default_branch: Optional[str] = None  # Узел по умолчанию, если ни одно условие не подошло
     position: Dict[str, Any] = None  # {"x": float, "y": float}
 
 class AgentLogic(BaseModel):

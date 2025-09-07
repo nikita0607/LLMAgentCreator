@@ -57,11 +57,18 @@ export interface KnowledgeSourceSelectorProps {
   supportedTypes?: SupportedTypesResponse;
 }
 
+// Conditional branch interface
+export interface ConditionalBranch {
+  id: string;
+  condition_text: string;
+  next_node?: string;
+}
+
 // Extended node data interface
 export interface ExtendedNodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge";
+  type: "message" | "webhook" | "knowledge" | "conditional_llm";
   action?: string;
   url?: string;
   method?: string;
@@ -74,6 +81,11 @@ export interface ExtendedNodeData {
   extractor_metadata?: Record<string, any>;
   embeddings_count?: number;
   updated_at?: string;
+  // Legacy property for backward compatibility
+  filename?: string;
+  // Conditional LLM specific properties
+  branches?: ConditionalBranch[];
+  default_branch?: string;
 }
 
 export interface NodeParam {

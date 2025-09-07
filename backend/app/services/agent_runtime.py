@@ -152,6 +152,62 @@ def process_node(nodes: list[dict], node: dict, agent_id: int, user_input: Optio
                 "conversation_id": conversation_id
             }
 
+    if node["type"] == "conditional_llm":
+        # Обрабатываем условное ветвление через LLM
+        branches = node.get("branches", [])
+        default_branch = node.get("default_branch")
+        
+        if not branches:
+            return {
+                "reply": "Ошибка: не настроены условные ветки",
+                "next_node": default_branch,
+                "conversation_id": conversation_id
+            }
+        
+        # Формируем промпт для LLM для выбора подходящей ветки
+        user_text = user_input.get("user_text", "")
+        conditions_text = "\n".join([f"{i+1}. {branch['condition_text']}" 
+                                    for i, branch in enumerate(branches)])
+        
+        llm_prompt = (
+            f"{system_prompt}\n"
+            f"Пользователь сказал: '{user_text}'\n"
+            f"Выбери наиболее подходящий вариант из следующих условий:\n{conditions_text}\n"
+            f"Ответь только номером варианта (1-{len(branches)}) без дополнительных пояснений. "
+            f"Если ни один вариант не подходит, ответь 0."
+        )
+        
+        try:
+            response = chat_with_agent(llm_prompt, voice_id, conversation_id)
+            conversation_id = response.get("conversation_id")
+            
+            # Парсим ответ LLM
+            choice = response.get("reply", "0").strip()
+            try:
+                choice_num = int(choice)
+                if 1 <= choice_num <= len(branches):
+                    selected_branch = branches[choice_num - 1]
+                    next_node = selected_branch.get("next_node")
+                else:
+                    # Выбран несуществующий вариант или 0 (нет подходящего)
+                    next_node = default_branch
+            except ValueError:
+                # LLM вернул не число
+                next_node = default_branch
+                
+            return {
+                "reply": f"Выбрано условие: {branches[choice_num-1]['condition_text'] if 1 <= choice_num <= len(branches) else 'по умолчанию'}",
+                "next_node": next_node,
+                "conversation_id": conversation_id
+            }
+            
+        except Exception as e:
+            return {
+                "reply": f"Ошибка при обработке условного ветвления: {str(e)}",
+                "next_node": default_branch,
+                "conversation_id": conversation_id
+            }
+
     if node["type"] == "knowledge":
         db: Session = next(get_db())
         service = KnowledgeService(db)

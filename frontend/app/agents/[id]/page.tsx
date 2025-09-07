@@ -36,12 +36,15 @@ interface NodeParam {
 interface NodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge";
+  type: "message" | "webhook" | "knowledge" | "conditional_llm";
   action?: string;
   url?: string;
   method?: string;
   params?: NodeParam[];
   missing_param_message?: string;
+  // Conditional LLM specific properties
+  branches?: { id: string; condition_text: string; next_node?: string }[];
+  default_branch?: string;
   // Legacy filename property for backward compatibility
   filename?: string;
 }
@@ -161,6 +164,12 @@ export default function AgentEditorPage() {
               missing_param_message: n.missing_param_message,
             };
 
+            // Handle conditional LLM specific properties
+            if (n.type === "conditional_llm") {
+              nodeData.branches = n.branches || [];
+              nodeData.default_branch = n.default_branch;
+            }
+
             if (n.type === "knowledge") {
               const knowledgeData = await fetchKnowledgeInfo(agentId, n.id);
               if (knowledgeData) {
@@ -195,6 +204,38 @@ export default function AgentEditorPage() {
                 target: n.next,
                 sourceHandle: "default",
               });
+            }
+            if (n.type === "knowledge" && n.next) {
+              agentEdges.push({
+                id: `${n.id}->${n.next}`,
+                source: n.id,
+                target: n.next,
+                sourceHandle: "default",
+              });
+            }
+            if (n.type === "conditional_llm") {
+              // Handle conditional branches
+              if (n.branches) {
+                n.branches.forEach((branch: any) => {
+                  if (branch.next_node) {
+                    agentEdges.push({
+                      id: `${n.id}->${branch.next_node}`,
+                      source: n.id,
+                      target: branch.next_node,
+                      sourceHandle: branch.id,
+                    });
+                  }
+                });
+              }
+              // Handle default branch
+              if (n.default_branch) {
+                agentEdges.push({
+                  id: `${n.id}->${n.default_branch}`,
+                  source: n.id,
+                  target: n.default_branch,
+                  sourceHandle: "default",
+                });
+              }
             }
             if (n.type === "webhook") {
               if (n.on_success) {
@@ -359,6 +400,25 @@ export default function AgentEditorPage() {
           if (out) base.next = out.target;
         }
 
+        if (data.type === "conditional_llm") {
+          if (data.branches && data.branches.length > 0) {
+            // Map each branch to its connected edge
+            base.branches = data.branches.map((branch) => {
+              const branchEdge = outgoing[n.id]?.find((edge) => edge.sourceHandle === branch.id);
+              return {
+                id: branch.id,
+                condition_text: branch.condition_text,
+                next_node: branchEdge?.target || null
+              };
+            });
+          }
+          
+          if (data.default_branch) {
+            const defaultEdge = outgoing[n.id]?.find((edge) => edge.sourceHandle === "default");
+            base.default_branch = defaultEdge?.target || null;
+          }
+        }
+
         if (data.type === "webhook") {
           if (data.action) base.action = data.action;
           if (data.url) base.url = data.url;
@@ -471,7 +531,7 @@ export default function AgentEditorPage() {
                     onChange={(e) =>
                       setEditNode({
                         ...editNode,
-                        type: e.target.value as "message" | "webhook" | "knowledge",
+                        type: e.target.value as "message" | "webhook" | "knowledge" | "conditional_llm",
                       })
                     }
                     className="w-full p-2 border rounded mb-4 text-gray-900"
@@ -479,6 +539,7 @@ export default function AgentEditorPage() {
                     <option value="message">Message</option>
                     <option value="webhook">Webhook</option>
                     <option value="knowledge">Knowledge</option>
+                    <option value="conditional_llm">Conditional LLM</option>
                   </select>
 
                   {editNode.type === "webhook" && (
@@ -598,6 +659,81 @@ export default function AgentEditorPage() {
                     </>
                   )}
 
+                  {editNode.type === "conditional_llm" && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-2 text-gray-800">
+                        Conditional Branches Configuration
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Create multiple branches with conditions. The LLM will evaluate user input and choose the most appropriate branch.
+                      </p>
+                      
+                      {(editNode.branches || []).map((branch, index) => (
+                        <div key={branch.id} className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-purple-800">
+                              Branch {index + 1}
+                            </label>
+                            <button
+                              type="button"
+                              className="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600"
+                              onClick={() => {
+                                const newBranches = [...(editNode.branches || [])].filter((b) => b.id !== branch.id);
+                                setEditNode({ ...editNode, branches: newBranches });
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <textarea
+                            placeholder="Describe the condition for this branch (e.g., 'User wants to place an order', 'User has a question about products')"
+                            className="w-full p-2 border rounded text-gray-900 text-sm"
+                            rows={2}
+                            value={branch.condition_text}
+                            onChange={(e) => {
+                              const newBranches = [...(editNode.branches || [])];
+                              const idx = newBranches.findIndex((b) => b.id === branch.id);
+                              newBranches[idx].condition_text = e.target.value;
+                              setEditNode({ ...editNode, branches: newBranches });
+                            }}
+                          />
+                        </div>
+                      ))}
+                      
+                      <button
+                        type="button"
+                        className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600 text-sm"
+                        onClick={() => {
+                          const newBranches = [
+                            ...(editNode.branches || []),
+                            { id: uuidv4(), condition_text: "", next_node: undefined },
+                          ];
+                          setEditNode({ ...editNode, branches: newBranches });
+                        }}
+                      >
+                        Add Branch
+                      </button>
+                      
+                      <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Default Branch (optional)
+                        </label>
+                        <p className="text-xs text-gray-500 mb-2">
+                          This branch will be taken if none of the conditions match
+                        </p>
+                        <input
+                          type="text"
+                          placeholder="Default branch node ID (leave empty for no default)"
+                          className="w-full p-2 border rounded text-gray-900 text-sm"
+                          value={editNode.default_branch || ""}
+                          onChange={(e) =>
+                            setEditNode({ ...editNode, default_branch: e.target.value || undefined })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {editNode.type === "knowledge" && (
                     <div className="mb-4">
                       <h3 className="font-semibold mb-4 text-gray-800">Knowledge Source Configuration</h3>
@@ -616,7 +752,6 @@ export default function AgentEditorPage() {
                               </div>
                               <div className="text-sm text-green-600">
                                 Type: {editNode.source_type} • 
-                                {editNode.embeddings_count || 0} chunks • 
                                 {editNode.updated_at ? 
                                   `Updated: ${new Date(editNode.updated_at).toLocaleDateString()}` : 
                                   'Recently added'

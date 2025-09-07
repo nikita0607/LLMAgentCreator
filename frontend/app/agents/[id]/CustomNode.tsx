@@ -45,10 +45,23 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
     return data.filename || 'Unknown source';
   };
 
+  // Calculate dynamic height for conditional LLM nodes
+  const getNodeHeight = () => {
+    if (data.type === "conditional_llm" && data.branches && data.branches.length > 0) {
+      const baseHeight = 80; // Base height for title and content
+      const branchesHeight = data.branches.length * 28; // Each branch takes ~28px
+      const defaultBranchHeight = data.default_branch ? 28 : 0;
+      const paddingHeight = 20; // Extra padding
+      return baseHeight + branchesHeight + defaultBranchHeight + paddingHeight;
+    }
+    return undefined; // Let CSS handle height for other node types
+  };
+
   return (
     <div
       className="bg-white border p-2 rounded shadow relative cursor-pointer min-w-[150px]"
       onClick={() => onOpenModal(data)}
+      style={{ minHeight: getNodeHeight() }}
     >
       <div className="font-medium">{data.label}</div>
       
@@ -89,6 +102,40 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
         </div>
       )}
 
+      {/* Display conditional branches for conditional_llm nodes */}
+      {data.type === "conditional_llm" && data.branches && data.branches.length > 0 && (
+        <div className="text-xs text-gray-500 mt-1 space-y-1">
+          <div className="font-medium text-purple-600">Conditional Branches:</div>
+          {data.branches.map((branch, index) => (
+            <div 
+              key={branch.id} 
+              className="text-xs bg-purple-50 px-2 py-1 rounded border-l-2 border-purple-300 flex items-center justify-between"
+              style={{
+                borderLeftColor: `hsl(${(index * 360) / Math.max(data.branches!.length, 1)}, 70%, 50%)`
+              }}
+            >
+              <span>
+                {branch.condition_text.length > 25 
+                  ? `${branch.condition_text.substring(0, 25)}...` 
+                  : branch.condition_text}
+              </span>
+              <div 
+                className="w-2 h-2 rounded-full ml-2 flex-shrink-0"
+                style={{
+                  backgroundColor: `hsl(${(index * 360) / Math.max(data.branches!.length, 1)}, 70%, 50%)`
+                }}
+              />
+            </div>
+          ))}
+          {data.default_branch && (
+            <div className="text-xs bg-gray-50 px-2 py-1 rounded border-l-2 border-gray-300 flex items-center justify-between">
+              <span>Default branch</span>
+              <div className="w-2 h-2 rounded-full ml-2 flex-shrink-0 bg-gray-400" />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Левый вход */}
       <Handle
         type="target"
@@ -102,6 +149,47 @@ export const CustomNode = ({ data, onOpenModal }: CustomNodeProps) => {
         <>
           <Handle type="source" position={Position.Right} id="success" style={{ top: '30%', background: 'green' }} />
           <Handle type="source" position={Position.Right} id="failure" style={{ top: '70%', background: 'red' }} />
+        </>
+      ) : data.type === "conditional_llm" && data.branches ? (
+        <>
+          {data.branches.map((branch, index) => {
+            // Calculate position to align with each branch preview item
+            // Base offset accounts for the node title, "Conditional Branches:" title, and spacing
+            const titleHeight = 32; // Node title height
+            const branchesHeaderHeight = 20; // "Conditional Branches:" header height
+            const baseOffset = titleHeight + branchesHeaderHeight;
+            const branchItemHeight = 28; // Height of each branch preview item including margins
+            const branchCenterOffset = 14; // Center of each branch item
+            const topPosition = baseOffset + (index * branchItemHeight) + branchCenterOffset;
+            
+            return (
+              <Handle 
+                key={branch.id}
+                type="source" 
+                position={Position.Right} 
+                id={branch.id}
+                style={{ 
+                  top: `${topPosition}px`, 
+                  background: `hsl(${(index * 360) / Math.max(data.branches!.length, 1)}, 70%, 50%)`,
+                  position: 'absolute',
+                  right: '-8px'
+                }}
+              />
+            );
+          })}
+          {data.default_branch && (
+            <Handle 
+              type="source" 
+              position={Position.Right} 
+              id="default"
+              style={{ 
+                top: `${32 + 20 + (data.branches!.length * 28) + 14}px`, // titleHeight + branchesHeaderHeight + branches + centerOffset
+                background: '#888',
+                position: 'absolute',
+                right: '-8px'
+              }}
+            />
+          )}
         </>
       ) : (
         <Handle type="source" position={Position.Right} id="default" style={{ top: '50%', background: '#555' }} />

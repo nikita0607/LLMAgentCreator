@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
     ELEVENLABS_API_KEY: str
-    GROQ_API_KEY: str
+    OPENROUTER_API_KEY: str
 
     class Config:
         env_file = ".env"

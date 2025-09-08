@@ -111,15 +111,29 @@ def process_node(nodes: dict[str, dict], node: dict, agent_id: int, user_input: 
     
     Allows infinite loops for continuous conversation with agents.
     """
-    print("HERE", node)
+    print(f"PROCESSING NODE: {node.get('id')} of type: {node.get('type')}")
+    print(f"NODE DATA: {node}")
+    
     if node["type"] == "message":
         reply: str = node['text']
         reply = safe_format(reply, user_input)
-        print(reply)
+        print(f"Message reply: {reply}")
         return {
             "reply": reply,
             "next_node": node.get("next"),
             "conversation_id": conversation_id
+        }
+
+    if node["type"] == "forced_message":
+        # Forced message node sends predefined text without waiting for user input
+        reply: str = node.get('forced_text', node.get('text', 'Forced message'))
+        reply = safe_format(reply, user_input)
+        print(f"Forced message reply: {reply}")
+        return {
+            "reply": reply,
+            "next_node": node.get("next"),
+            "conversation_id": conversation_id,
+            "is_forced": True  # Flag to indicate this is a forced message
         }
 
     if node["type"] == "webhook":

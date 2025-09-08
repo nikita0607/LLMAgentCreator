@@ -35,8 +35,14 @@ def update_agent(agent_id: int, agent_update: AgentUpdate, db: Session = Depends
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
+    # Дебаг: проверяем forced_message ноды
+    logic_dict = agent_update.logic.dict()
+    for node in logic_dict.get("nodes", []):
+        if node.get("type") == "forced_message":
+            print(f"Saving forced_message node {node.get('id')} with forced_text: {node.get('forced_text')}")
+    
     # Сохраняем логику в JSON поле
-    agent.logic = agent_update.logic.dict()
+    agent.logic = logic_dict
     db.commit()
     db.refresh(agent)
     return agent_update

@@ -21,6 +21,10 @@ class MessageIn(BaseModel):
 class MessageOut(BaseModel):
     reply: str
     action: Optional[Dict[str, Any]] = None
+    next_node: Optional[str] = None
+    conversation_id: Optional[str] = None
+    session_id: Optional[int] = None  # For session creation responses
+    messages: Optional[List[str]] = None  # For multiple sequential messages
 
 class MessageHistory(BaseModel):
     id: int

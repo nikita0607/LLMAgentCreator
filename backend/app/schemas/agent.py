@@ -32,7 +32,7 @@ class ConditionalBranch(BaseModel):
 class NodeLogic(BaseModel):
     id: str
     text: str
-    type: str  # "message", "webhook", "knowledge", "conditional_llm"
+    type: str  # "message", "webhook", "knowledge", "conditional_llm", "forced_message"
     next: Optional[str] = None
     action: Optional[str] = None
     url: Optional[str] = None
@@ -44,6 +44,8 @@ class NodeLogic(BaseModel):
     # Новые поля для conditional_llm
     branches: Optional[List[ConditionalBranch]] = []
     default_branch: Optional[str] = None  # Узел по умолчанию, если ни одно условие не подошло
+    # Поле для forced_message
+    forced_text: Optional[str] = None  # Принудительное сообщение для автоматической отправки
     position: Dict[str, Any] = None  # {"x": float, "y": float}
 
 class AgentLogic(BaseModel):

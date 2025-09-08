@@ -68,7 +68,7 @@ export interface ConditionalBranch {
 export interface ExtendedNodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge" | "conditional_llm";
+  type: "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message";
   action?: string;
   url?: string;
   method?: string;
@@ -86,6 +86,8 @@ export interface ExtendedNodeData {
   // Conditional LLM specific properties
   branches?: ConditionalBranch[];
   default_branch?: string;
+  // Forced message specific properties
+  forced_text?: string;
 }
 
 export interface NodeParam {

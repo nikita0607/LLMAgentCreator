@@ -9,6 +9,10 @@ interface CustomNodeProps {
   isStartNode?: boolean; // Add prop to indicate if this is the start node
 }
 
+interface ForcedMessageNodeData extends ExtendedNodeData {
+  forced_text?: string;
+}
+
 export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) => {
   // Helper function to get node type display name
   const getNodeTypeDisplayName = (nodeType: string) => {
@@ -16,6 +20,7 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
       case 'knowledge': return 'RAG Module';
       case 'conditional_llm': return 'LLM Module';
       case 'webhook': return 'Webhook';
+      case 'forced_message': return 'Forced Message';
       default: return nodeType;
     }
   };
@@ -122,6 +127,18 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
               {data.source_type}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Display forced message content for forced_message nodes */}
+      {data.type === "forced_message" && (data as ForcedMessageNodeData).forced_text && (
+        <div className="text-xs text-black mt-1 p-2 bg-blue-50 border border-blue-200 rounded">
+          <div className="font-medium text-blue-600 mb-1">Auto-send message:</div>
+          <div className="italic break-words">
+            {(data as ForcedMessageNodeData).forced_text!.length > 50 
+              ? `${(data as ForcedMessageNodeData).forced_text!.substring(0, 50)}...` 
+              : (data as ForcedMessageNodeData).forced_text}
+          </div>
         </div>
       )}
 

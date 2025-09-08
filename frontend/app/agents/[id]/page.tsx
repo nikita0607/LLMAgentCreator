@@ -36,7 +36,7 @@ interface NodeParam {
 interface NodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge" | "conditional_llm";
+  type: "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message";
   action?: string;
   url?: string;
   method?: string;
@@ -47,6 +47,8 @@ interface NodeData {
   default_branch?: string;
   // Legacy filename property for backward compatibility
   filename?: string;
+  // Forced message specific properties
+  forced_text?: string;
 }
 
 // Use ExtendedNodeData for the actual node data with knowledge properties
@@ -200,6 +202,12 @@ export default function AgentEditorPage() {
               nodeData.default_branch = n.default_branch;
             }
 
+            // Handle forced message specific properties
+            if (n.type === "forced_message") {
+              nodeData.forced_text = n.forced_text;
+              console.log(`Loading forced_message node ${n.id} with forced_text:`, n.forced_text);
+            }
+
             if (n.type === "knowledge") {
               const knowledgeData = await fetchKnowledgeInfo(agentId, n.id);
               if (knowledgeData) {
@@ -228,6 +236,14 @@ export default function AgentEditorPage() {
           const agentEdges: Edge[] = [];
           data.logic.nodes.forEach((n: any) => {
             if (n.type === "message" && n.next) {
+              agentEdges.push({
+                id: `${n.id}->${n.next}`,
+                source: n.id,
+                target: n.next,
+                sourceHandle: "default",
+              });
+            }
+            if (n.type === "forced_message" && n.next) {
               agentEdges.push({
                 id: `${n.id}->${n.next}`,
                 source: n.id,
@@ -366,6 +382,7 @@ export default function AgentEditorPage() {
     if (!editNode) return;
 
     console.log("Saving node:", editNode.type);
+    console.log("Node data before save:", editNode);
     
     // For knowledge nodes, we don't need to handle file upload here anymore
     // The KnowledgeSourceSelector component handles uploads directly
@@ -395,15 +412,22 @@ export default function AgentEditorPage() {
       }
     }
 
+    // Debug forced message data
+    if (editNode.type === "forced_message") {
+      console.log("Saving forced message with text:", editNode.forced_text);
+    }
+
     // Update nodes in state
     setNodes((nds) => {
       const existing = nds.find((n) => n.id === editNode.id);
       if (existing) {
+        console.log("Updating existing node:", editNode.id);
         return nds.map((n) =>
           n.id === editNode.id ? { ...n, data: { ...editNode } } : n
         );
       }
       const newId = editNode.id || uuidv4();
+      console.log("Creating new node:", newId);
       return [
         ...nds,
         {
@@ -453,9 +477,19 @@ export default function AgentEditorPage() {
           text: data.label,
         };
 
-        if (data.type === "message" || data.type === "knowledge") {
+        if (data.type === "message" || data.type === "knowledge" || data.type === "forced_message") {
           const out = outgoing[n.id]?.[0];
           if (out) base.next = out.target;
+        }
+
+        if (data.type === "forced_message") {
+          console.log("Processing forced_message node:", n.id, "with data:", data);
+          if (data.forced_text) {
+            base.forced_text = data.forced_text;
+            console.log("Added forced_text to base:", data.forced_text);
+          } else {
+            console.log("WARNING: No forced_text found for forced_message node");
+          }
         }
 
         if (data.type === "conditional_llm") {
@@ -626,7 +660,7 @@ export default function AgentEditorPage() {
                     onChange={(e) =>
                       setEditNode({
                         ...editNode,
-                        type: e.target.value as "message" | "webhook" | "knowledge" | "conditional_llm",
+                        type: e.target.value as "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message",
                       })
                     }
                     className="w-full p-2 border rounded mb-4 text-gray-900"
@@ -635,6 +669,7 @@ export default function AgentEditorPage() {
                     <option value="webhook">Webhook</option>
                     <option value="knowledge">Knowledge</option>
                     <option value="conditional_llm">Conditional LLM</option>
+                    <option value="forced_message">Forced Message</option>
                   </select>
 
                   {editNode.type === "webhook" && (
@@ -826,6 +861,28 @@ export default function AgentEditorPage() {
                           }
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {editNode.type === "forced_message" && (
+                    <div className="mb-4">
+                      <label className="block mb-2 text-gray-800">Принудительное сообщение</label>
+                      <textarea
+                        value={editNode.forced_text || ""}
+                        onChange={(e) => {
+                          console.log("Forced text changing to:", e.target.value);
+                          setEditNode({ ...editNode, forced_text: e.target.value });
+                        }}
+                        className="w-full p-2 border rounded mb-4 text-gray-900 placeholder-gray-500"
+                        rows={3}
+                        placeholder="Введите текст сообщения, которое будет отправлено автоматически..."
+                      />
+                      <p className="text-xs text-gray-500">
+                        Это сообщение будет отправлено автоматически без ожидания ввода пользователя.
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Current value: "{editNode.forced_text || "(empty)"}"
+                      </p>
                     </div>
                   )}
 

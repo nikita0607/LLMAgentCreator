@@ -26,20 +26,54 @@ export default function ChatPage() {
         const agent = await apiFetch(`/agents/${agentId}`);
         setAgentName(agent.name);
 
-        const session = await apiFetch(`/sessions/`, {
+        const sessionResponse = await apiFetch(`/sessions/`, {
           method: "POST",
           body: JSON.stringify({ agent_id: agentId }),
         });
-        setSessionId(session.id);
+        
+        // Check if response has session_id (new format) or id (old format)
+        const actualSessionId = sessionResponse.session_id || sessionResponse.id;
+        setSessionId(actualSessionId);
+        
+        // If there's an initial forced message, add it to messages
+        if (sessionResponse.messages && sessionResponse.messages.length > 0) {
+          const initialMessages: Message[] = sessionResponse.messages.map(text => ({
+            sender: "agent" as const,
+            text: text
+          }));
+          setMessages(initialMessages);
+        } else if (sessionResponse.reply && sessionResponse.reply.trim()) {
+          const initialMessage: Message = {
+            sender: "agent",
+            text: sessionResponse.reply
+          };
+          setMessages([initialMessage]);
+        }
 
         // подгружаем историю, если есть
-        const history = await apiFetch(`/sessions/${session.id}/history`);
-        if (history?.messages) {
-          const msgs: Message[] = history.messages.map((m: any) => ({
-            sender: m.sender === "user" ? "user" : "agent",
-            text: m.text,
-          }));
-          setMessages(msgs);
+        if (actualSessionId) {
+          try {
+            const history = await apiFetch(`/sessions/${actualSessionId}/history`);
+            if (history?.messages) {
+              const msgs: Message[] = history.messages.map((m: any) => ({
+                sender: m.sender === "user" ? "user" : "agent",
+                text: m.text,
+              }));
+              // If we already have initial messages, append to them
+              setMessages(prevMessages => {
+                if (prevMessages.length > 0) {
+                  // Merge with existing initial messages, avoiding duplicates
+                  const existingTexts = new Set(prevMessages.map(m => m.text));
+                  const newMsgs = msgs.filter(m => !existingTexts.has(m.text));
+                  return [...prevMessages, ...newMsgs];
+                } else {
+                  return msgs;
+                }
+              });
+            }
+          } catch (historyErr) {
+            console.log("No history available or error loading history:", historyErr);
+          }
         }
       } catch (err) {
         console.error("Ошибка инициализации чата:", err);
@@ -62,8 +96,19 @@ export default function ChatPage() {
         body: JSON.stringify({ text: userMessage.text }),
       });
 
-      const reply: Message = { sender: "agent", text: response.reply };
-      setMessages((msgs) => [...msgs, reply]);
+      // Handle multiple messages from the response
+      if (response.messages && response.messages.length > 0) {
+        console.log("Received multiple messages:", response.messages);
+        const agentMessages: Message[] = response.messages.map((text: string) => ({
+          sender: "agent" as const,
+          text: text
+        }));
+        setMessages((msgs) => [...msgs, ...agentMessages]);
+      } else if (response.reply) {
+        console.log("Received single reply:", response.reply);
+        const reply: Message = { sender: "agent", text: response.reply };
+        setMessages((msgs) => [...msgs, reply]);
+      }
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
       setMessages((msgs) => [

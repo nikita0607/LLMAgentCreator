@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import ReactFlow, {
   ReactFlowProvider,
@@ -74,12 +74,15 @@ export default function AgentEditorPage() {
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeLoading, setKnowledgeLoading] = useState(false);
 
-  // Custom node component wrapper that includes start node info
-  const CustomNodeWrapper = (props: any) => {
-    return <CustomNode {...props} isStartNode={props.id === startNodeId} />;
-  };
-
-  const nodeTypes = { custom: CustomNodeWrapper };
+  // Memoize nodeTypes to prevent recreation on every render
+  const nodeTypes = useMemo(() => {
+    // Custom node component wrapper that includes start node info
+    const CustomNodeWrapper = (props: any) => {
+      return <CustomNode {...props} isStartNode={props.id === startNodeId} />;
+    };
+    
+    return { custom: CustomNodeWrapper };
+  }, [startNodeId]);
 
   // Function to get knowledge node information with enhanced data
   const fetchKnowledgeInfo = async (agentId: string, nodeId: string): Promise<ExtendedNodeData | null> => {

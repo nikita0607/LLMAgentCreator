@@ -395,14 +395,22 @@ export default function AgentEditorPage() {
 
   const addNode = (position?: { x: number, y: number }) => {
     const newId = uuidv4();
-    const newNode: Node = {
+    const newNodeData: ExtendedNodeData = {
       id: newId,
-      type: "custom",
-      data: { id: newId, label: "New Node", type: "message", params: [] } as ExtendedNodeData,
-      position: position || { x: nodes.length * 250, y: 100 },
+      label: "New Node",
+      type: "message",
+      params: []
     };
-    setNodes((prev) => [...prev, newNode]);
-    openModal(newNode);
+    
+    // Store the position for later use when saving
+    if (position) {
+      (newNodeData as any).tempPosition = position;
+    }
+    
+    // Don't add to nodes array yet - only open modal
+    setEditNode(newNodeData);
+    setKnowledgeError(null);
+    setIsModalOpen(true);
   };
 
   const addNodeAtPosition = (screenPosition: { x: number, y: number }) => {
@@ -431,6 +439,15 @@ export default function AgentEditorPage() {
     }
     setPaneContextMenu(null);
   };
+  
+  const cancelEdit = () => {
+    // Clean up any temporary data and close modal
+    setEditNode(null);
+    setSelectedFile(null);
+    setKnowledgeError(null);
+    setIsModalOpen(false);
+  };
+  
   const saveNode = async () => {
     if (!editNode) return;
 
@@ -479,15 +496,21 @@ export default function AgentEditorPage() {
           n.id === editNode.id ? { ...n, data: { ...editNode } } : n
         );
       }
+      
+      // Creating new node
       const newId = editNode.id || uuidv4();
       console.log("Creating new node:", newId);
+      
+      // Use stored temp position or default position
+      const position = (editNode as any).tempPosition || { x: nds.length * 250, y: 100 };
+      
       return [
         ...nds,
         {
           id: newId,
           type: "custom",
           data: { ...editNode, id: newId },
-          position: { x: nds.length * 250, y: 100 },
+          position: position,
         },
       ];
     });
@@ -727,7 +750,7 @@ export default function AgentEditorPage() {
         {/* --- Модалка --- */}
         <Dialog
           open={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={cancelEdit}
           className="fixed z-10 inset-0 overflow-y-auto"
         >
           <div className="flex items-center justify-center min-h-screen px-4">
@@ -1065,7 +1088,7 @@ export default function AgentEditorPage() {
                   <div className="flex justify-end gap-2 mt-2">
                     <button
                       className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
-                      onClick={() => setIsModalOpen(false)}
+                      onClick={cancelEdit}
                     >
                       Отмена
                     </button>

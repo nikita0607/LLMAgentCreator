@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 
 interface Message {
@@ -11,6 +12,7 @@ interface Message {
 
 export default function ChatPage() {
   const params = useParams();
+  const router = useRouter();
   const agentId = Number(params.id);
 
   const [agentName, setAgentName] = useState("");
@@ -122,8 +124,28 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-gray-100">
-      <div className="bg-blue-600 text-white p-4 font-bold text-lg">
-        Чат с агентом: {agentName || "..."}
+      <div className="bg-blue-600 text-white p-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 text-blue-200 hover:text-white transition-colors"
+            >
+              <span className="text-xl">←</span>
+              <span>К списку агентов</span>
+            </button>
+            <h1 className="font-bold text-lg">
+              Чат с агентом: {agentName || "..."}
+            </h1>
+          </div>
+          <Link
+            href={`/agents/${agentId}`}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-400 flex items-center gap-2"
+          >
+            <span>⚙️</span>
+            <span>Редактировать агента</span>
+          </Link>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import ReactFlow, {
@@ -16,6 +16,7 @@ import ReactFlow, {
   EdgeChange,
   applyNodeChanges,
   applyEdgeChanges,
+  ReactFlowInstance,
 } from "react-flow-renderer";
 import { apiFetch } from "@/lib/api";
 import { Dialog } from "@headlessui/react";
@@ -58,6 +59,7 @@ export default function AgentEditorPage() {
   const params = useParams();
   const router = useRouter();
   const agentId = params.id as string;
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -73,6 +75,7 @@ export default function AgentEditorPage() {
   
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{x: number, y: number, nodeId: string} | null>(null);
+  const [paneContextMenu, setPaneContextMenu] = useState<{x: number, y: number, position: {x: number, y: number}} | null>(null);
   
   // Knowledge source management
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
@@ -148,6 +151,24 @@ export default function AgentEditorPage() {
 
   const closeContextMenu = () => {
     setContextMenu(null);
+  };
+
+  const closePaneContextMenu = () => {
+    setPaneContextMenu(null);
+  };
+
+  const onPaneContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    const x = event.clientX;
+    const y = event.clientY;
+    
+    // Store screen coordinates for both menu positioning and node creation
+    const position = {
+      x: event.clientX,
+      y: event.clientY
+    };
+    
+    setPaneContextMenu({ x, y, position });
   };
 
   const openModal = async (node: Node) => {
@@ -324,11 +345,14 @@ export default function AgentEditorPage() {
       if (contextMenu) {
         setContextMenu(null);
       }
+      if (paneContextMenu) {
+        setPaneContextMenu(null);
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [contextMenu]);
+  }, [contextMenu, paneContextMenu]);
 
   // Knowledge source upload handlers
   const handleKnowledgeUploadSuccess = async (result: SourceUploadResult) => {
@@ -369,16 +393,43 @@ export default function AgentEditorPage() {
     setKnowledgeLoading(false);
   };
 
-  const addNode = () => {
+  const addNode = (position?: { x: number, y: number }) => {
     const newId = uuidv4();
     const newNode: Node = {
       id: newId,
       type: "custom",
       data: { id: newId, label: "New Node", type: "message", params: [] } as ExtendedNodeData,
-      position: { x: nodes.length * 250, y: 100 },
+      position: position || { x: nodes.length * 250, y: 100 },
     };
     setNodes((prev) => [...prev, newNode]);
     openModal(newNode);
+  };
+
+  const addNodeAtPosition = (screenPosition: { x: number, y: number }) => {
+    if (reactFlowInstance.current) {
+      // Get the ReactFlow wrapper element
+      const reactFlowWrapper = document.querySelector('.react-flow__renderer');
+      if (reactFlowWrapper) {
+        const rect = reactFlowWrapper.getBoundingClientRect();
+        // Calculate position relative to the ReactFlow canvas
+        const x = screenPosition.x - rect.left;
+        const y = screenPosition.y - rect.top;
+        
+        // Apply the current transform (zoom and pan) to get the correct flow position
+        const transform = reactFlowInstance.current.getViewport();
+        const flowPosition = {
+          x: (x - transform.x) / transform.zoom,
+          y: (y - transform.y) / transform.zoom
+        };
+        
+        addNode(flowPosition);
+      } else {
+        addNode();
+      }
+    } else {
+      addNode();
+    }
+    setPaneContextMenu(null);
   };
   const saveNode = async () => {
     if (!editNode) return;
@@ -589,7 +640,7 @@ export default function AgentEditorPage() {
             </Link>
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-              onClick={addNode}
+              onClick={() => addNode()}
             >
               Добавить узел
             </button>
@@ -610,6 +661,9 @@ export default function AgentEditorPage() {
           onNodesDelete={onNodesDelete}
           onEdgesDelete={onEdgesDelete}
           onConnect={onConnect}
+          onInit={(instance) => {
+            reactFlowInstance.current = instance;
+          }}
           fitView
           onNodeDoubleClick={(event, node) => {
             event.stopPropagation();
@@ -617,6 +671,7 @@ export default function AgentEditorPage() {
           }}
           onNodeContextMenu={onNodeContextMenu}
           onPaneClick={closeContextMenu}
+          onPaneContextMenu={onPaneContextMenu}
           nodeTypes={nodeTypes}
         >
           <MiniMap />
@@ -645,6 +700,26 @@ export default function AgentEditorPage() {
                   ✓ Current Start Node
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Pane Context Menu */}
+          {paneContextMenu && (
+            <div
+              className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-1 min-w-[150px]"
+              style={{ left: paneContextMenu.x, top: paneContextMenu.y }}
+              onClick={closePaneContextMenu}
+            >
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addNodeAtPosition(paneContextMenu.position);
+                }}
+              >
+                <span className="text-blue-600">➕</span>
+                Добавить узел
+              </button>
             </div>
           )}
         </ReactFlow>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -55,6 +56,7 @@ interface NodeData {
 
 export default function AgentEditorPage() {
   const params = useParams();
+  const router = useRouter();
   const agentId = params.id as string;
 
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -558,17 +560,33 @@ export default function AgentEditorPage() {
     <ReactFlowProvider>
       <div className="h-screen flex flex-col bg-gray-100 p-4">
         <div className="flex justify-between items-center mb-2">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Редактор агента: {agentName}
-            </h1>
-            {startNodeId && (
-              <p className="text-sm text-green-600 mt-1">
-                🚀 Start Node: <span className="font-mono bg-green-100 px-2 py-1 rounded">{startNodeId}</span>
-              </p>
-            )}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/")}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <span className="text-xl">←</span>
+              <span>К списку агентов</span>
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Редактор агента: {agentName}
+              </h1>
+              {startNodeId && (
+                <p className="text-sm text-green-600 mt-1">
+                  🚀 Start Node: <span className="font-mono bg-green-100 px-2 py-1 rounded">{startNodeId}</span>
+                </p>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
+            <Link
+              href={`/agents/${agentId}/chat`}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
+            >
+              <span>💬</span>
+              <span>Открыть чат</span>
+            </Link>
             <button
               className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               onClick={addNode}

@@ -31,3 +31,9 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   return res.json();
 }
+
+export async function deleteAgent(agentId: number) {
+  return apiFetch(`/agents/${agentId}`, {
+    method: "DELETE",
+  });
+}

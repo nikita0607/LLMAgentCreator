@@ -46,3 +46,13 @@ def update_agent(agent_id: int, agent_update: AgentUpdate, db: Session = Depends
     db.commit()
     db.refresh(agent)
     return agent_update
+
+@router.delete("/{agent_id}")
+def delete_agent(agent_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    agent = db.query(Agent).filter(Agent.id == agent_id, Agent.owner_id == current_user.id).first()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+    
+    db.delete(agent)
+    db.commit()
+    return {"message": "Agent deleted successfully"}

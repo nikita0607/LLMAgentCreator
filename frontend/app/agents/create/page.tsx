@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
-import { KnowledgeUpload } from "@/components/KnowledgeUpload";
 
 export default function CreateAgentPage() {
   const [name, setName] = useState("");
@@ -11,10 +10,14 @@ export default function CreateAgentPage() {
   const [voiceId, setVoiceId] = useState("");
   const [error, setError] = useState("");
   const [agentId, setAgentId] = useState<number | null>(null); // хранит ID созданного агента
+  const [isCreating, setIsCreating] = useState(false);
   const router = useRouter();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    setIsCreating(true);
+    setError("");
+    
     try {
       const data = await apiFetch("/agents", {
         method: "POST",
@@ -22,9 +25,14 @@ export default function CreateAgentPage() {
       });
 
       setAgentId(data.id); // сохраняем ID созданного агента
-      setError("");
-    } catch (err: any) {
-      setError(err.message || "Ошибка создания агента");
+      
+      // Перенаправляем на страницу редактирования созданного агента
+      router.push(`/agents/${data.id}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Ошибка создания агента";
+      setError(errorMessage);
+    } finally {
+      setIsCreating(false);
     }
   }
 
@@ -63,9 +71,10 @@ export default function CreateAgentPage() {
 
           <button
             type="submit"
-            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600"
+            disabled={isCreating}
+            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            Создать
+            {isCreating ? "Создание..." : "Создать"}
           </button>
         </form>
       )}

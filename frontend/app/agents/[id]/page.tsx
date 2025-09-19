@@ -678,27 +678,31 @@ export default function AgentEditorPage() {
     }
   };
 
-  if (loading) return <div className="p-4">Загрузка...</div>;
+  if (loading) return <div className="p-4 text-green-400 font-mono">▶ Loading agent workspace...</div>;
 
   return (
     <ReactFlowProvider>
-      <div className="h-screen flex flex-col bg-gray-100 p-4">
-        <div className="flex justify-between items-center mb-2">
+      <div className="h-screen flex flex-col bg-black p-4">
+        <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/")}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors font-mono"
             >
               <span className="text-xl">←</span>
-              <span>К списку агентов</span>
+              <span>cd ..</span>
             </button>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Редактор агента: {agentName}
-              </h1>
+              <div className="flex items-center gap-2">
+                <span className="text-green-400 font-mono">$</span>
+                <h1 className="text-xl font-bold text-green-400 font-mono">
+                  vim {agentName}.agent
+                </h1>
+              </div>
               {startNodeId && (
-                <p className="text-sm text-green-600 mt-1">
-                  🚀 Start Node: <span className="font-mono bg-green-100 px-2 py-1 rounded">{startNodeId}</span>
+                <p className="text-sm text-cyan-400 mt-1 font-mono flex items-center gap-2">
+                  <span>🚀</span> 
+                  <span>entry_point: <span className="bg-gray-800 px-2 py-1 border border-cyan-400" style={{ borderRadius: '0.25rem' }}>{startNodeId}</span></span>
                 </p>
               )}
             </div>
@@ -706,51 +710,54 @@ export default function AgentEditorPage() {
           <div className="flex gap-2">
             <Link
               href={`/agents/${agentId}/chat`}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2"
+              className="bg-transparent border border-green-400 text-green-400 px-4 py-2 font-mono hover:bg-green-400 hover:text-black transition-all duration-200 flex items-center gap-2"
+              style={{ borderRadius: '0.25rem' }}
             >
               <span>💬</span>
-              <span>Открыть чат</span>
+              <span>./chat</span>
             </Link>
             <button
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              className="bg-transparent border border-blue-400 text-blue-400 px-4 py-2 font-mono hover:bg-blue-400 hover:text-black transition-all duration-200"
+              style={{ borderRadius: '0.25rem' }}
               onClick={() => addNode()}
             >
-              Добавить узел
+              + node
             </button>
             <button
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              className="bg-blue-500 text-black px-4 py-2 font-mono hover:bg-blue-400 transition-colors duration-200"
+              style={{ borderRadius: '0.25rem' }}
               onClick={() => saveToServer(true)}
             >
-              Сохранить на сервер
+              :w (save)
             </button>
             
-            {/* Auto-save status indicator */}
-            <div className="flex items-center gap-2 text-sm">
+            {/* Terminal-style Auto-save status indicator */}
+            <div className="flex items-center gap-2 text-sm font-mono">
               {isSaving && (
-                <div className="flex items-center gap-1 text-blue-600">
-                  <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Сохранение...</span>
+                <div className="flex items-center gap-1 text-cyan-400">
+                  <div className="w-3 h-3 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                  <span>writing...</span>
                 </div>
               )}
               
               {!isSaving && hasUnsavedChanges && (
-                <div className="flex items-center gap-1 text-orange-600">
-                  <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
-                  <span>Есть несохранённые изменения</span>
+                <div className="flex items-center gap-1 text-orange-400">
+                  <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                  <span>*modified*</span>
                 </div>
               )}
               
               {!isSaving && !hasUnsavedChanges && lastSaved && (
-                <div className="flex items-center gap-1 text-green-600">
-                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-                  <span>Сохранено {lastSaved.toLocaleTimeString()}</span>
+                <div className="flex items-center gap-1 text-green-400">
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                  <span>saved {lastSaved.toLocaleTimeString()}</span>
                 </div>
               )}
               
               {autoSaveError && (
-                <div className="flex items-center gap-1 text-red-600">
-                  <div className="w-2 h-2 bg-red-600 rounded-full"></div>
-                  <span>Ошибка автосохранения</span>
+                <div className="flex items-center gap-1 text-red-400">
+                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                  <span>save_error</span>
                 </div>
               )}
             </div>
@@ -782,76 +789,95 @@ export default function AgentEditorPage() {
           <Controls />
           <Background />
           
-          {/* Context Menu */}
+          {/* Terminal-style Context Menu */}
           {contextMenu && (
             <div
-              className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-1 min-w-[150px]"
-              style={{ left: contextMenu.x, top: contextMenu.y }}
+              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg py-1 min-w-[180px] font-mono"
+              style={{ 
+                left: contextMenu.x, 
+                top: contextMenu.y,
+                borderRadius: '0.25rem',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' 
+              }}
               onClick={closeContextMenu}
             >
               <button
-                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                className="w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors duration-200"
                 onClick={(e) => {
                   e.stopPropagation();
                   setAsStartNode(contextMenu.nodeId);
                 }}
               >
-                <span className="text-green-600">🚀</span>
-                Set as Start Node
+                <span className="text-green-400">🚀</span>
+                <span>set main()</span>
               </button>
               {startNodeId === contextMenu.nodeId && (
-                <div className="px-4 py-2 text-sm text-green-600 font-medium">
-                  ✓ Current Start Node
+                <div className="px-4 py-2 text-sm text-cyan-400 font-medium flex items-center gap-2">
+                  <span>✓</span>
+                  <span>current entry_point</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Pane Context Menu */}
+          {/* Terminal-style Pane Context Menu */}
           {paneContextMenu && (
             <div
-              className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-lg py-1 min-w-[150px]"
-              style={{ left: paneContextMenu.x, top: paneContextMenu.y }}
+              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg py-1 min-w-[160px] font-mono"
+              style={{ 
+                left: paneContextMenu.x, 
+                top: paneContextMenu.y,
+                borderRadius: '0.25rem',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)' 
+              }}
               onClick={closePaneContextMenu}
             >
               <button
-                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2"
+                className="w-full text-left px-4 py-2 hover:bg-gray-700 flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors duration-200"
                 onClick={(e) => {
                   e.stopPropagation();
                   addNodeAtPosition(paneContextMenu.position);
                 }}
               >
-                <span className="text-blue-600">➕</span>
-                Добавить узел
+                <span className="text-blue-400">+</span>
+                <span>new node</span>
               </button>
             </div>
           )}
         </ReactFlow>
 
-        {/* --- Модалка --- */}
+        {/* Terminal-style Node Editor Modal */}
         <Dialog
           open={isModalOpen}
           onClose={cancelEdit}
           className="fixed z-10 inset-0 overflow-y-auto"
         >
-          <div className="flex items-center justify-center min-h-screen px-4">
-            <Dialog.Panel className="bg-white rounded shadow-lg p-6 w-full max-w-md">
-              <Dialog.Title className="text-xl font-bold mb-4">
-                Редактировать узел
+          <div className="flex items-center justify-center min-h-screen px-4 bg-black bg-opacity-75">
+            <Dialog.Panel 
+              className="bg-gray-800 border border-green-400 p-6 w-full max-w-md font-mono"
+              style={{ 
+                borderRadius: '0.25rem', 
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)' 
+              }}
+            >
+              <Dialog.Title className="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">
+                <span>⚙️</span>
+                <span>nano node.config</span>
               </Dialog.Title>
               {editNode && (
                 <>
-                  <label className="block mb-2 text-gray-800">Текст узла</label>
+                  <label className="block mb-2 text-green-400">node.label</label>
                   <input
                     type="text"
                     value={editNode.label}
                     onChange={(e) =>
                       setEditNode({ ...editNode, label: e.target.value })
                     }
-                    className="w-full p-2 border rounded mb-4 text-gray-900 placeholder-gray-500"
+                    className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-4 focus:border-green-400 focus:outline-none"
+                    style={{ borderRadius: '0.25rem' }}
                   />
 
-                  <label className="block mb-2 text-gray-800">Тип узла</label>
+                  <label className="block mb-2 text-green-400">node.type</label>
                   <select
                     value={editNode.type}
                     onChange={(e) =>
@@ -860,13 +886,14 @@ export default function AgentEditorPage() {
                         type: e.target.value as "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message",
                       })
                     }
-                    className="w-full p-2 border rounded mb-4 text-gray-900"
+                    className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-4 focus:border-green-400 focus:outline-none"
+                    style={{ borderRadius: '0.25rem' }}
                   >
-                    <option value="message">Message</option>
-                    <option value="webhook">Webhook</option>
-                    <option value="knowledge">Knowledge</option>
-                    <option value="conditional_llm">Conditional LLM</option>
-                    <option value="forced_message">Forced Message</option>
+                    <option value="message">message</option>
+                    <option value="webhook">webhook</option>
+                    <option value="knowledge">knowledge</option>
+                    <option value="conditional_llm">conditional_llm</option>
+                    <option value="forced_message">forced_message</option>
                   </select>
 
                   {editNode.type === "webhook" && (
@@ -1167,18 +1194,20 @@ export default function AgentEditorPage() {
                   )}
 
 
-                  <div className="flex justify-end gap-2 mt-2">
+                  <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-600">
                     <button
-                      className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                      className="bg-transparent border border-gray-600 text-gray-400 px-4 py-2 font-mono hover:bg-gray-700 hover:border-gray-500 transition-colors duration-200"
+                      style={{ borderRadius: '0.25rem' }}
                       onClick={cancelEdit}
                     >
-                      Отмена
+                      :q (cancel)
                     </button>
                     <button
-                      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                      className="bg-green-500 text-black px-4 py-2 font-mono hover:bg-green-400 transition-colors duration-200"
+                      style={{ borderRadius: '0.25rem' }}
                       onClick={saveNode}
                     >
-                      Сохранить
+                      :wq (save)
                     </button>
                   </div>
                 </>

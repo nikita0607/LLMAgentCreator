@@ -2,7 +2,7 @@ import re
 import requests
 from typing import Dict, Any, List
 from datetime import datetime
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 from .base import DataExtractor, SourceInput, ExtractedData
@@ -36,7 +36,7 @@ class WebDataExtractor(DataExtractor):
         try:
             parsed = urlparse(source_input.data)
             return parsed.scheme in ['http', 'https'] and parsed.netloc
-        except:
+        except Exception:
             return False
     
     def get_supported_types(self) -> List[str]:

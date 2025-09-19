@@ -1,6 +1,6 @@
 import pytest
 import io
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool

@@ -1,5 +1,6 @@
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+
 
 class AgentBase(BaseModel):
     name: str
@@ -14,10 +15,6 @@ class AgentOut(AgentBase):
     id: int
     class Config:
         from_attributes = True
-
-
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 
 class NodeParam(BaseModel):
     name: str

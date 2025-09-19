@@ -1,6 +1,5 @@
 import pytest
 import io
-from unittest.mock import Mock, patch
 from app.services.data_extractors import (
     DataExtractorFactory, 
     SourceInput, 

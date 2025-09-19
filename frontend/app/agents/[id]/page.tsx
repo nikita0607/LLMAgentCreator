@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAutoSave } from "../../../hooks/useAutoSave";
 import ReactFlow, {
   ReactFlowProvider,
   addEdge,
@@ -80,6 +81,28 @@ export default function AgentEditorPage() {
   // Knowledge source management
   const [knowledgeError, setKnowledgeError] = useState<string | null>(null);
   const [knowledgeLoading, setKnowledgeLoading] = useState(false);
+  
+  // Auto-save state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
+  
+  // Data object for auto-save tracking
+  const editorData = useMemo(() => ({
+    nodes,
+    edges,
+    startNodeId,
+    agentName
+  }), [nodes, edges, startNodeId, agentName]);
+  
+  // Auto-save hook
+  const { isSaving } = useAutoSave(editorData, {
+    delay: 2000, // 2 seconds delay
+    onSave: async () => {
+      await saveToServer(false); // Don't show alert for auto-save
+    },
+    isEnabled: hasUnsavedChanges && !loading
+  });
 
   // Memoize nodeTypes to prevent recreation on every render
   const nodeTypes = useMemo(() => {
@@ -110,19 +133,27 @@ export default function AgentEditorPage() {
           filename: knowledgeInfo.name
         };
       }
-    } catch (err) {
+    } catch {
       console.log("Knowledge info not found for node:", nodeId);
     }
     return null;
   };
 
 
-  const onNodesChange = (changes: NodeChange[]) =>
+  const onNodesChange = (changes: NodeChange[]) => {
     setNodes((nds) => applyNodeChanges(changes, nds));
-  const onEdgesChange = (changes: EdgeChange[]) =>
+    setHasUnsavedChanges(true);
+  };
+  
+  const onEdgesChange = (changes: EdgeChange[]) => {
     setEdges((eds) => applyEdgeChanges(changes, eds));
-  const onConnect = (connection: Edge | Connection) =>
+    setHasUnsavedChanges(true);
+  };
+  
+  const onConnect = (connection: Edge | Connection) => {
     setEdges((eds) => addEdge(connection, eds));
+    setHasUnsavedChanges(true);
+  };
   const onNodesDelete = (deleted: Node[]) => {
     setNodes((nds) => nds.filter((n) => !deleted.find((d) => d.id === n.id)));
     setEdges((eds) =>
@@ -130,9 +161,12 @@ export default function AgentEditorPage() {
         (e) => !deleted.find((d) => d.id === e.source || d.id === e.target)
       )
     );
+    setHasUnsavedChanges(true);
   };
+  
   const onEdgesDelete = (deleted: Edge[]) => {
     setEdges((eds) => eds.filter((e) => !deleted.find((d) => d.id === e.id)));
+    setHasUnsavedChanges(true);
   };
 
   const onNodeContextMenu = (event: React.MouseEvent, node: Node) => {
@@ -146,6 +180,7 @@ export default function AgentEditorPage() {
 
   const setAsStartNode = (nodeId: string) => {
     setStartNodeId(nodeId);
+    setHasUnsavedChanges(true);
     setContextMenu(null);
   };
 
@@ -515,12 +550,15 @@ export default function AgentEditorPage() {
       ];
     });
 
+    setHasUnsavedChanges(true);
     setIsModalOpen(false);
   };
 
 
-  const saveToServer = async () => {
+  const saveToServer = async (showAlert = true) => {
     try {
+      setAutoSaveError(null);
+      
       const outgoing = edges.reduce<Record<string, Edge[]>>((acc, e) => {
         acc[e.source] = acc[e.source] || [];
         acc[e.source].push(e);
@@ -621,10 +659,22 @@ export default function AgentEditorPage() {
         method: "PUT",
         body: JSON.stringify(payload),
       });
-      alert("Логика агента успешно сохранена!");
+      
+      // Update auto-save state
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+      
+      if (showAlert) {
+        alert("Логика агента успешно сохранена!");
+      }
     } catch (err) {
       console.error(err);
-      alert("Ошибка при сохранении на сервер");
+      const errorMessage = err instanceof Error ? err.message : "Ошибка при сохранении на сервер";
+      setAutoSaveError(errorMessage);
+      
+      if (showAlert) {
+        alert("Ошибка при сохранении на сервер");
+      }
     }
   };
 
@@ -669,10 +719,41 @@ export default function AgentEditorPage() {
             </button>
             <button
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              onClick={saveToServer}
+              onClick={() => saveToServer(true)}
             >
               Сохранить на сервер
             </button>
+            
+            {/* Auto-save status indicator */}
+            <div className="flex items-center gap-2 text-sm">
+              {isSaving && (
+                <div className="flex items-center gap-1 text-blue-600">
+                  <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Сохранение...</span>
+                </div>
+              )}
+              
+              {!isSaving && hasUnsavedChanges && (
+                <div className="flex items-center gap-1 text-orange-600">
+                  <div className="w-2 h-2 bg-orange-600 rounded-full"></div>
+                  <span>Есть несохранённые изменения</span>
+                </div>
+              )}
+              
+              {!isSaving && !hasUnsavedChanges && lastSaved && (
+                <div className="flex items-center gap-1 text-green-600">
+                  <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                  <span>Сохранено {lastSaved.toLocaleTimeString()}</span>
+                </div>
+              )}
+              
+              {autoSaveError && (
+                <div className="flex items-center gap-1 text-red-600">
+                  <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                  <span>Ошибка автосохранения</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1053,6 +1134,7 @@ export default function AgentEditorPage() {
                             nodeId={editNode.id}
                             onUploadSuccess={handleKnowledgeUploadSuccess}
                             onError={handleKnowledgeUploadError}
+                            onSourceSelected={() => {}} // Not used in this context
                           />
                         )}
                       </ErrorBoundary>

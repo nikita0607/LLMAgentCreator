@@ -10,10 +10,13 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   // если это НЕ FormData → ставим JSON
   if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
+    (headers as any)["Content-Type"] = "application/json";
   }
 
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${path}`, {
+  // Use NEXT_PUBLIC_API_URL from environment or default to localhost
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  
+  const res = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers,
   });

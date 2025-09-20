@@ -1,11 +1,9 @@
 import io
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, HttpUrl
 from app.db import get_db
-from app.models.agent import Agent
-from app.models.knowledge_base import KnowledgeNode
 from app.services.knowledge_service import KnowledgeService
 from app.core.config import settings
 

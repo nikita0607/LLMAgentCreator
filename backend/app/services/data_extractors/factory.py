@@ -1,4 +1,4 @@
-from typing import List, Type, Optional, Dict, Any
+from typing import List, Optional, Dict, Any
 from urllib.parse import urlparse
 import os
 
@@ -107,7 +107,7 @@ class DataExtractorFactory:
                 parsed = urlparse(data.strip())
                 if parsed.scheme in ['http', 'https'] and parsed.netloc:
                     return "web"
-            except:
+            except Exception:
                 pass
             return "text"
         

@@ -4,7 +4,7 @@ from app.core.config import settings
 from pydantic import BaseModel
 from typing import Optional, Callable
 from elevenlabs import ElevenLabs
-from elevenlabs.conversational_ai.conversation import Conversation, ConversationInitiationData, AudioInterface
+from elevenlabs.conversational_ai.conversation import AudioInterface
 
 class DummyAudioInterface(AudioInterface):
     def output(self, audio: bytes): ...

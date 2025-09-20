@@ -1,14 +1,11 @@
 import io
-import tempfile
-import os
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from app.models.knowledge_base import KnowledgeNode, KnowledgeEmbedding
-from app.services.data_extractors import DataExtractorFactory, SourceInput
-from app.core.config import settings
+from app.services.data_extractors import DataExtractorFactory
 import numpy as np
 
 
@@ -39,7 +36,7 @@ class KnowledgeService:
         """
         try:
             # Создаем SourceInput
-            source_input = self.extractor_factory.create_source_input(
+            self.extractor_factory.create_source_input(
                 data=data,
                 source_name=source_name,
                 metadata=source_metadata or {}
@@ -187,7 +184,7 @@ class KnowledgeService:
         vectors = self.embeddings_model.embed_documents(chunks)
         
         # Сохраняем в базу
-        embeddings_to_add = [
+        [
             KnowledgeEmbedding(
                 kb_id=kb_node.id,
                 chunk_index=idx,

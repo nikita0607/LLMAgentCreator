@@ -1,26 +1,174 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Terminal/CLI Color Scheme */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-quaternary: #30363d;
+  
+  --text-primary: #e6edf3;
+  --text-secondary: #f0f6fc;
+  --text-muted: #cccccc;
+  --text-disabled: #7d8590;
+  
+  --accent-green-primary: #7ee787;
+  --accent-green-hover: #56d364;
+  --accent-green-terminal: #00ff00;
+  --accent-green-soft: #4EC9B0;
+  
+  --accent-red: #f85149;
+  --accent-orange: #ff9500;
+  --accent-blue: #79c0ff;
+  --accent-purple: #d2a8ff;
+  
+  --border-primary: #30363d;
+  --border-secondary: #21262d;
+  --border-accent: var(--accent-green-primary);
+  
+  /* Legacy variables for compatibility */
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Base styles */
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-geist-mono, 'Monaco', 'Menlo', 'Consolas', monospace);
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Terminal-style button styling */
+button, .btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.25rem;
+  font-family: var(--font-geist-mono, 'Monaco', 'Menlo', 'Consolas', monospace);
+  transition: all 0.2s ease;
+}
+
+button:hover, .btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-green-primary);
+  color: var(--accent-green-primary);
+}
+
+button:focus, .btn:focus {
+  outline: 2px solid var(--accent-green-primary);
+  outline-offset: 2px;
+}
+
+/* Green accent buttons */
+.btn-primary {
+  background: var(--accent-green-primary);
+  color: var(--bg-primary);
+  border-color: var(--accent-green-primary);
+}
+
+.btn-primary:hover {
+  background: var(--accent-green-hover);
+  color: var(--bg-primary);
+}
+
+/* Red accent buttons */
+.btn-danger {
+  background: var(--accent-red);
+  color: var(--text-primary);
+  border-color: var(--accent-red);
+}
+
+.btn-danger:hover {
+  background: #fa7970;
+  border-color: #fa7970;
+}
+
+/* Input and form elements */
+input, textarea, select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.25rem;
+  font-family: var(--font-geist-mono, 'Monaco', 'Menlo', 'Consolas', monospace);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent-green-primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(126, 231, 135, 0.2);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-disabled);
+}
+
+/* Links */
+a {
+  color: var(--accent-green-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: var(--accent-green-hover);
+}
+
+/* Cards and containers */
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 0.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.card:hover {
+  border-color: var(--accent-green-primary);
+  box-shadow: 0 0 0 1px var(--accent-green-primary);
+}
+
+/* Modal/Dialog styling */
+.modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-green-primary);
+  border-radius: 0.25rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-green-primary);
+}
+
+/* Terminal-style text selection */
+::selection {
+  background: var(--accent-green-primary);
+  color: var(--bg-primary);
+}
+
+/* Disable system dark mode detection - we control the theme */
+@media (prefers-color-scheme: dark) {
+  /* Override with our terminal theme */
 }

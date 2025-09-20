@@ -19,11 +19,14 @@ interface KnowledgeSourceSelectorState {
   error: string | null;
 }
 
-interface ExtendedKnowledgeSourceSelectorProps extends KnowledgeSourceSelectorProps {
+interface ExtendedKnowledgeSourceSelectorProps {
   agentId: string;
   nodeId: string;
   onUploadSuccess: (result: SourceUploadResult) => void;
   onError: (error: string) => void;
+  onSourceSelected?: (sourceType: SourceType) => void;
+  selectedType?: SourceType;
+  supportedTypes?: SupportedTypesResponse;
 }
 
 // Source type configurations

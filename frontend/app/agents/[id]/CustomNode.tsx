@@ -74,90 +74,108 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
 
   return (
     <div
-      className={`${isStartNode 
-        ? 'bg-green-50 border-green-500 border-2 shadow-lg' 
-        : 'bg-white border'} p-2 rounded shadow relative min-w-[150px]`}
-      style={{ minHeight: getNodeHeight() }}
+      className={`${
+        isStartNode 
+          ? 'bg-gray-800 border-green-400 border-2 shadow-lg shadow-green-400/20' 
+          : 'bg-gray-900 border border-gray-600'
+      } p-3 font-mono relative min-w-[160px] hover:border-green-400 transition-all duration-200`}
+      style={{ 
+        minHeight: getNodeHeight(),
+        borderRadius: '0.25rem',
+        boxShadow: isStartNode 
+          ? '0 0 20px rgba(126, 231, 135, 0.3)' 
+          : '0 2px 8px rgba(0, 0, 0, 0.3)'
+      }}
     >
-      {/* Start node indicator */}
+      {/* Terminal-style start node indicator */}
       {isStartNode && (
-        <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
-          START
+        <div 
+          className="absolute -top-2 -left-2 bg-green-500 text-black text-xs px-2 py-1 font-bold"
+          style={{ borderRadius: '0.25rem' }}
+        >
+          MAIN
         </div>
       )}
       
-      <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-        isStartNode ? 'text-green-700' : 'text-blue-600'
+      <div className={`text-xs font-bold uppercase tracking-wide mb-2 ${
+        isStartNode ? 'text-green-400' : 'text-cyan-400'
       }`}>
-        {getNodeTypeDisplayName(data.type)}
+        [{getNodeTypeDisplayName(data.type)}]
       </div>
-      <div className="font-medium text-black">{data.label}</div>
+      <div className={`font-medium text-sm ${
+        isStartNode ? 'text-green-300' : 'text-gray-200'
+      }`}>
+        {data.label}
+      </div>
       
-      {/* Display source information for knowledge nodes */}
+      {/* Terminal-style source information for knowledge nodes */}
       {data.type === "knowledge" && (
-        <div className="text-xs text-black mt-1 space-y-1">
+        <div className="text-xs text-gray-300 mt-2 space-y-1 border-l-2 border-gray-600 pl-2">
           <div className="flex items-center space-x-1">
             <span>{getSourceTypeIcon(data.source_type || 'file')}</span>
-            <span className="italic">
+            <span className="text-cyan-400 font-mono">
               {getSourceDisplayName(data)}
             </span>
           </div>
           
           {/* Show embeddings count if available */}
           {data.embeddings_count !== undefined && (
-            <div className="text-xs text-blue-600">
-              {data.embeddings_count} chunks
+            <div className="text-xs text-blue-400">
+              vectors: {data.embeddings_count}
             </div>
           )}
           
           {/* Show last updated if available */}
           {data.updated_at && (
-            <div className="text-xs text-gray-400">
-              Updated: {new Date(data.updated_at).toLocaleDateString()}
+            <div className="text-xs text-gray-500">
+              updated: {new Date(data.updated_at).toLocaleDateString()}
             </div>
           )}
           
           {/* Show source type badge */}
           {data.source_type && (
-            <div className={`inline-block px-1 py-0.5 rounded text-xs font-medium ${
-              data.source_type === 'web' ? 'bg-blue-100 text-blue-800' :
-              data.source_type === 'audio' ? 'bg-purple-100 text-purple-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
+            <div className={`inline-block px-1 py-0.5 text-xs font-medium border ${
+              data.source_type === 'web' ? 'bg-blue-900 text-blue-300 border-blue-500' :
+              data.source_type === 'audio' ? 'bg-purple-900 text-purple-300 border-purple-500' :
+              'bg-gray-900 text-gray-300 border-gray-500'
+            }`}
+            style={{ borderRadius: '0.25rem' }}
+            >
               {data.source_type}
             </div>
           )}
         </div>
       )}
 
-      {/* Display forced message content for forced_message nodes */}
+      {/* Terminal-style forced message display */}
       {data.type === "forced_message" && (data as ForcedMessageNodeData).forced_text && (
-        <div className="text-xs text-black mt-1 p-2 bg-blue-50 border border-blue-200 rounded">
-          <div className="font-medium text-blue-600 mb-1">Auto-send message:</div>
-          <div className="italic break-words">
-            {(data as ForcedMessageNodeData).forced_text!.length > 50 
-              ? `${(data as ForcedMessageNodeData).forced_text!.substring(0, 50)}...` 
-              : (data as ForcedMessageNodeData).forced_text}
+        <div className="text-xs text-gray-300 mt-2 p-2 bg-gray-800 border border-blue-500" style={{ borderRadius: '0.25rem' }}>
+          <div className="font-medium text-blue-400 mb-1">auto_message:</div>
+          <div className="text-gray-300 font-mono break-words">
+            "{(data as ForcedMessageNodeData).forced_text!.length > 40 
+              ? `${(data as ForcedMessageNodeData).forced_text!.substring(0, 40)}...` 
+              : (data as ForcedMessageNodeData).forced_text}"
           </div>
         </div>
       )}
 
-      {/* Display conditional branches for conditional_llm nodes */}
+      {/* Terminal-style conditional branches display */}
       {data.type === "conditional_llm" && data.branches && data.branches.length > 0 && (
-        <div className="text-xs text-black mt-1 space-y-1">
-          <div className="font-medium text-purple-600">Conditional Branches:</div>
+        <div className="text-xs text-gray-300 mt-2 space-y-1">
+          <div className="font-medium text-purple-400">branches:</div>
           {data.branches.map((branch, index) => (
             <div 
               key={branch.id} 
-              className="text-xs bg-purple-50 px-2 py-1 rounded border-l-2 border-purple-300 flex items-center justify-between"
+              className="text-xs bg-gray-800 px-2 py-1 border-l-2 flex items-center justify-between font-mono"
               style={{
+                borderRadius: '0.25rem',
                 borderLeftColor: `hsl(${(index * 360) / Math.max(data.branches!.length, 1)}, 70%, 50%)`
               }}
             >
-              <span>
-                {branch.condition_text.length > 25 
-                  ? `${branch.condition_text.substring(0, 25)}...` 
-                  : branch.condition_text}
+              <span className="text-gray-300">
+                if ({branch.condition_text.length > 20 
+                  ? `${branch.condition_text.substring(0, 20)}...` 
+                  : branch.condition_text})
               </span>
               <div 
                 className="w-2 h-2 rounded-full ml-2 flex-shrink-0"
@@ -168,38 +186,66 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
             </div>
           ))}
           {data.default_branch && (
-            <div className="text-xs bg-gray-50 px-2 py-1 rounded border-l-2 border-gray-300 flex items-center justify-between">
-              <span>Default branch</span>
-              <div className="w-2 h-2 rounded-full ml-2 flex-shrink-0 bg-gray-400" />
+            <div className="text-xs bg-gray-800 px-2 py-1 border-l-2 border-gray-500 flex items-center justify-between font-mono" style={{ borderRadius: '0.25rem' }}>
+              <span className="text-gray-400">else (default)</span>
+              <div className="w-2 h-2 rounded-full ml-2 flex-shrink-0 bg-gray-500" />
             </div>
           )}
         </div>
       )}
 
-      {/* Левый вход */}
+      {/* Terminal-style input handle */}
       <Handle
         type="target"
         position={Position.Left}
         id="input"
-        style={{ top: '50%', transform: 'translateY(-50%)', background: '#555' }}
+        style={{ 
+          top: '50%', 
+          transform: 'translateY(-50%)', 
+          background: '#4ec9b0',
+          border: '2px solid #0d1117',
+          width: '12px',
+          height: '12px'
+        }}
       />
 
-      {/* Правые выходы */}
+      {/* Terminal-style output handles */}
       {data.type === "webhook" ? (
         <>
-          <Handle type="source" position={Position.Right} id="success" style={{ top: '30%', background: 'green' }} />
-          <Handle type="source" position={Position.Right} id="failure" style={{ top: '70%', background: 'red' }} />
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="success" 
+            style={{ 
+              top: '30%', 
+              background: '#7ee787',
+              border: '2px solid #0d1117',
+              width: '12px',
+              height: '12px'
+            }} 
+          />
+          <Handle 
+            type="source" 
+            position={Position.Right} 
+            id="failure" 
+            style={{ 
+              top: '70%', 
+              background: '#f85149',
+              border: '2px solid #0d1117',
+              width: '12px',
+              height: '12px'
+            }} 
+          />
         </>
       ) : data.type === "conditional_llm" && data.branches ? (
         <>
           {data.branches.map((branch, index) => {
             // Calculate position to align with each branch preview item
-            // Base offset accounts for the node title, "Conditional Branches:" title, and spacing
-            const titleHeight = 50; // Node title height + margin
-            const branchesHeaderHeight = 18; // "Conditional Branches:" header height
+            const titleHeight = 50;
+            const branchesHeaderHeight = 18;
             const baseOffset = titleHeight + branchesHeaderHeight;
-            const branchItemHeight = 30; // Height of each branch preview item including margins
-            const branchCenterOffset = 16; // Center of each branch item
+            const branchItemHeight = 30;
+            const branchCenterOffset = 16;
             const topPosition = baseOffset + (index * branchItemHeight) + branchCenterOffset;
             
             return (
@@ -211,8 +257,11 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
                 style={{ 
                   top: `${topPosition}px`, 
                   background: `hsl(${(index * 360) / Math.max(data.branches!.length, 1)}, 70%, 50%)`,
+                  border: '2px solid #0d1117',
                   position: 'absolute',
-                  right: '-8px'
+                  right: '-8px',
+                  width: '12px',
+                  height: '12px'
                 }}
               />
             );
@@ -223,16 +272,30 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
               position={Position.Right} 
               id="default"
               style={{ 
-                top: `${50 + 18 + (data.branches!.length * 30) + 16}px`, // titleHeight + branchesHeaderHeight + branches + centerOffset
-                background: '#888',
+                top: `${50 + 18 + (data.branches!.length * 30) + 16}px`,
+                background: '#7d8590',
+                border: '2px solid #0d1117',
                 position: 'absolute',
-                right: '-8px'
+                right: '-8px',
+                width: '12px',
+                height: '12px'
               }}
             />
           )}
         </>
       ) : (
-        <Handle type="source" position={Position.Right} id="default" style={{ top: '50%', background: '#555' }} />
+        <Handle 
+          type="source" 
+          position={Position.Right} 
+          id="default" 
+          style={{ 
+            top: '50%', 
+            background: '#4ec9b0',
+            border: '2px solid #0d1117',
+            width: '12px',
+            height: '12px'
+          }} 
+        />
       )}
     </div>
   );

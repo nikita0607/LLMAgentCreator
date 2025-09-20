@@ -35,40 +35,57 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md w-96">
-        <h1 className="text-2xl font-bold mb-4 text-gray-900">Вход</h1>
-        {error && <div className="text-red-600 mb-2 whitespace-pre-wrap">{error}</div>}
+    <div className="flex justify-center items-center h-screen bg-black">
+      <form 
+        onSubmit={handleLogin} 
+        className="bg-gray-800 border border-green-400 p-6 w-96 font-mono"
+        style={{ 
+          borderRadius: '0.25rem',
+          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
+        }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-green-400">$</span>
+          <h1 className="text-2xl font-bold text-green-400">./login --auth</h1>
+        </div>
+        {error && (
+          <div className="text-red-400 bg-gray-900 p-2 border border-red-500 mb-2" style={{ borderRadius: '0.25rem' }}>
+            AUTH_ERROR: {error}
+          </div>
+        )}
         <input
           type="email"
-          placeholder="Email"
-          className="w-full p-2 border rounded mb-2 text-gray-900 placeholder-gray-500"
+          placeholder="user@domain.com"
+          className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-2 focus:border-green-400 focus:outline-none"
+          style={{ borderRadius: '0.25rem' }}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
         />
         <input
           type="password"
-          placeholder="Пароль"
-          className="w-full p-2 border rounded mb-4 text-gray-900 placeholder-gray-500"
+          placeholder="••••••••"
+          className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-4 focus:border-green-400 focus:outline-none"
+          style={{ borderRadius: '0.25rem' }}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
         />
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+          className="w-full bg-green-500 text-black py-2 font-mono hover:bg-green-400 transition-colors duration-200"
+          style={{ borderRadius: '0.25rem' }}
         >
-          Войти
+          execute login.sh
         </button>
-        <p className="mt-4 text-sm text-center text-gray-800">
-          Нет аккаунта?{" "}
+        <p className="mt-4 text-sm text-center text-gray-400">
+          No account?{" "}
           <button
             type="button"
-            className="text-green-600 hover:underline font-medium"
+            className="text-green-400 hover:text-green-300 hover:underline font-medium"
             onClick={() => router.push("/register")}
           >
-            Зарегистрироваться
+            ./register
           </button>
         </p>
       </form>

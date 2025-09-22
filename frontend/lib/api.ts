@@ -15,7 +15,6 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
 
   // Use NEXT_PUBLIC_API_URL from environment or default to localhost
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  
   const res = await fetch(`${apiUrl}${path}`, {
     ...options,
     headers,

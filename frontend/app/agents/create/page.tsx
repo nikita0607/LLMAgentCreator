@@ -37,11 +37,11 @@ export default function CreateAgentPage() {
   }
 
   return (
-    <div className="flex flex-col justify-center items-center p-6 bg-gray-700 min-h-screen space-y-6">
+    <div className="flex flex-col justify-center items-center p-6 bg-gray-900 min-h-screen space-y-6">
       {!agentId && (
         <form 
           onSubmit={handleCreate} 
-          className="bg-gray-600 border border-green-400 p-6 w-full max-w-lg space-y-4 font-mono" 
+          className="bg-gray-800 border border-green-500 p-6 w-full max-w-lg space-y-4 font-mono"
           style={{ 
             borderRadius: '0.25rem',
             boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
@@ -74,7 +74,7 @@ export default function CreateAgentPage() {
             className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono focus:border-green-400 focus:outline-none"
             style={{ borderRadius: '0.25rem' }}
             placeholder="# System instructions for the agent..."
-            rows={4}
+            rows={10}
           />
 
           <label className="block text-green-400">agent.voice_id</label>

@@ -9,6 +9,7 @@ import ReactFlow, {
   addEdge,
   MiniMap,
   Controls,
+  ControlProps,
   Background,
   Connection,
   Edge,
@@ -28,6 +29,10 @@ import { KnowledgeApi } from "../../../lib/knowledgeApi";
 import { ExtendedNodeData, SourceUploadResult } from "../../../types/knowledge";
 import { ErrorBoundary } from "../../../components/ErrorBoundary";
 import { LoadingSpinner } from "../../../components/LoadingSpinner";
+
+const flowStyle = {
+  backgroundColor: '#222', // Example: dark background for the flow container
+};
 
 interface NodeParam {
   id: string;
@@ -66,6 +71,9 @@ export default function AgentEditorPage() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [agentName, setAgentName] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [colorMode, setColorMode] = useState<ColorMode>('dark');
+
   const [startNodeId, setStartNodeId] = useState<string | null>(null); // Track start node
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -138,6 +146,17 @@ export default function AgentEditorPage() {
     }
     return null;
   };
+
+  const getNodeByID = (nodeId: string) => {
+      var foundNode = null;
+      nodes.forEach(node => {
+          console.log("NODE: ", node.id, " ", nodeId);
+        if (node.id == nodeId)
+            foundNode = node;
+      })
+        console.log("FOUND NODE ", foundNode);
+      return foundNode;
+  }
 
 
   const onNodesChange = (changes: NodeChange[]) => {
@@ -682,7 +701,7 @@ export default function AgentEditorPage() {
 
   return (
     <ReactFlowProvider>
-      <div className="h-screen flex flex-col bg-black p-4">
+      <div className="h-screen flex flex-col bg-gray-900 p-4">
         <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
           <div className="flex items-center gap-4">
             <button
@@ -702,7 +721,10 @@ export default function AgentEditorPage() {
               {startNodeId && (
                 <p className="text-sm text-cyan-400 mt-1 font-mono flex items-center gap-2">
                   <span>🚀</span> 
-                  <span>entry_point: <span className="bg-gray-800 px-2 py-1 border border-cyan-400" style={{ borderRadius: '0.25rem' }}>{startNodeId}</span></span>
+                  <span>entry_point: <span className="bg-gray-800 px-2 py-1 border border-cyan-400" style={{ borderRadius: '0.25rem' }}>
+                    {getNodeByID(startNodeId)?.data.label.slice(0, 30)}
+                    {getNodeByID(startNodeId)?.data.label.length > 30 ? "..." : ""}
+                  </span></span>
                 </p>
               )}
             </div>
@@ -784,15 +806,17 @@ export default function AgentEditorPage() {
           onPaneClick={closeContextMenu}
           onPaneContextMenu={onPaneContextMenu}
           nodeTypes={nodeTypes}
+
         >
-          <MiniMap />
-          <Controls />
+          <Controls
+              showZoom={false}
+          />
           <Background />
-          
+
           {/* Terminal-style Context Menu */}
           {contextMenu && (
             <div
-              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg py-1 min-w-[180px] font-mono"
+              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg  min-w-[180px] font-mono"
               style={{ 
                 left: contextMenu.x, 
                 top: contextMenu.y,
@@ -823,7 +847,7 @@ export default function AgentEditorPage() {
           {/* Terminal-style Pane Context Menu */}
           {paneContextMenu && (
             <div
-              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg py-1 min-w-[160px] font-mono"
+              className="fixed z-50 bg-gray-800 border border-green-400 shadow-lg min-w-[160px] font-mono"
               style={{ 
                 left: paneContextMenu.x, 
                 top: paneContextMenu.y,
@@ -1023,9 +1047,12 @@ export default function AgentEditorPage() {
                       </p>
                       
                       {(editNode.branches || []).map((branch, index) => (
-                        <div key={branch.id} className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div key={branch.id} className="mb-3 p-3 bg-gray-900 border border-gray-900 rounded-lg">
                           <div className="flex items-center justify-between mb-2">
-                            <label className="text-sm font-medium text-purple-800">
+                            <label className="text-sm font-medium"
+                               style={{
+                                color: `hsl(${(index * 360) / Math.max(editNode.branches!.length, 1)}, 70%, 50%)`
+                                }}>
                               Branch {index + 1}
                             </label>
                             <button
@@ -1042,7 +1069,7 @@ export default function AgentEditorPage() {
                           <textarea
                             placeholder="Describe the condition for this branch (e.g., 'User wants to place an order', 'User has a question about products')"
                             className="w-full p-2 border rounded text-gray-900 text-sm"
-                            rows={2}
+                            rows={3}
                             value={branch.condition_text}
                             onChange={(e) => {
                               const newBranches = [...(editNode.branches || [])];
@@ -1068,11 +1095,11 @@ export default function AgentEditorPage() {
                         Add Branch
                       </button>
                       
-                      <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <div className="mt-4 p-4 bg-gray-900 border border-gray-800 rounded-lg">
+                        <label className="block text-sm font-medium text-gray-200 mb-2">
                           Default Branch (optional)
                         </label>
-                        <p className="text-xs text-gray-500 mb-2">
+                        <p className="text-xs text-gray-400 mb-2">
                           This branch will be taken if none of the conditions match
                         </p>
                         <input

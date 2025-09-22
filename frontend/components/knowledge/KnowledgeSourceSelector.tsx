@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as knowledgeTypes from '../../types/knowledge';
 import {
   SourceType,
   KnowledgeSourceSelectorProps,
@@ -26,11 +27,39 @@ interface ExtendedKnowledgeSourceSelectorProps {
   onError: (error: string) => void;
   onSourceSelected?: (sourceType: SourceType) => void;
   selectedType?: SourceType;
-  supportedTypes?: SupportedTypesResponse;
+  supportedTypes?: knowledgeTypes.SupportedTypesResponse;
 }
 
 // Source type configurations
-const SOURCE_TYPE_CONFIGS = {
+type FileSourceConfig = {
+  type: SourceType;
+  label: string;
+  icon: string;
+  description: string;
+  acceptedFileTypes: string[];
+  component: React.ComponentType<any>;
+};
+
+type WebSourceConfig = {
+  type: SourceType;
+  label: string;
+  icon: string;
+  description: string;
+  component: React.ComponentType<any>;
+};
+
+type AudioSourceConfig = {
+  type: SourceType;
+  label: string;
+  icon: string;
+  description: string;
+  acceptedFileTypes: string[];
+  component: React.ComponentType<any>;
+};
+
+type SourceConfig = FileSourceConfig | WebSourceConfig | AudioSourceConfig;
+
+const SOURCE_TYPE_CONFIGS: Record<string, SourceConfig> = {
   file: {
     type: 'file' as SourceType,
     label: 'Document',
@@ -66,7 +95,7 @@ export const KnowledgeSourceSelector: React.FC<ExtendedKnowledgeSourceSelectorPr
 }) => {
   const [state, setState] = useState<KnowledgeSourceSelectorState>({
     selectedType: initialSelectedType || null,
-    supportedTypes: initialSupportedTypes || null,
+    supportedTypes: initialSupportedTypes?.supported_types || null,
     isLoading: false,
     error: null
   });
@@ -166,6 +195,11 @@ export const KnowledgeSourceSelector: React.FC<ExtendedKnowledgeSourceSelectorPr
       disabled: false
     };
 
+    // Type guard to check if config has acceptedFileTypes
+    const hasAcceptedFileTypes = (config: SourceConfig): config is FileSourceConfig | AudioSourceConfig => {
+      return 'acceptedFileTypes' in config;
+    };
+
     return (
       <div className="mt-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
         <div className="flex items-center justify-between mb-4">
@@ -184,8 +218,9 @@ export const KnowledgeSourceSelector: React.FC<ExtendedKnowledgeSourceSelectorPr
           {...commonProps}
           agentId={agentId}
           nodeId={nodeId}
-          {...(config.acceptedFileTypes && { acceptedFileTypes: config.acceptedFileTypes })}
+          {...(hasAcceptedFileTypes(config) && config.acceptedFileTypes ? { acceptedFileTypes: config.acceptedFileTypes } : {})}
         />
+
       </div>
     );
   };

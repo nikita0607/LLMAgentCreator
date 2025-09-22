@@ -10,11 +10,10 @@ RUN npm install
 COPY . .
 
 # Переменные окружения (например, API)
-ENV NODE_ENV=development
-ENV PORT=3000
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
 
 EXPOSE 3000
 
 # Запуск dev-сервера
-CMD ["npm", "run", "dev"]
+CMD ["npm", "start"]

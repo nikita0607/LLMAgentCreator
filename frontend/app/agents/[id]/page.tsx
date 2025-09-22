@@ -72,8 +72,6 @@ export default function AgentEditorPage() {
   const [agentName, setAgentName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [colorMode, setColorMode] = useState<ColorMode>('dark');
-
   const [startNodeId, setStartNodeId] = useState<string | null>(null); // Track start node
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -148,14 +146,8 @@ export default function AgentEditorPage() {
   };
 
   const getNodeByID = (nodeId: string) => {
-      var foundNode = null;
-      nodes.forEach(node => {
-          console.log("NODE: ", node.id, " ", nodeId);
-        if (node.id == nodeId)
-            foundNode = node;
-      })
-        console.log("FOUND NODE ", foundNode);
-      return foundNode;
+    if (!nodeId) return null;
+    return nodes.find((node: Node) => node.id === nodeId) || null;
   }
 
 

@@ -77,6 +77,7 @@ export default function HomePage() {
             key={agent.id} 
             className="bg-gray-800 border border-gray-700 p-4 font-mono hover:border-green-400 transition-all duration-200 group"
             style={{ borderRadius: '0.25rem', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)' }}
+            onClick={() => {router.push("/agents/"+agent.id)}}
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -92,6 +93,7 @@ export default function HomePage() {
               <Link
                 href={`/agents/${agent.id}`}
                 className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
               >
                 <span>⚙️</span>
                 <span>edit</span>
@@ -99,13 +101,14 @@ export default function HomePage() {
               <Link
                 href={`/agents/${agent.id}/chat`}
                 className="text-green-400 hover:text-green-300 hover:underline flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
               >
                 <span>💬</span>
                 <span>chat</span>
               </Link>
               <button
-                onClick={() => setShowDeleteDialog(agent.id)}
-                className="text-red-400 hover:text-red-300 hover:underline flex items-center gap-1"
+                onClick={(e) => {setShowDeleteDialog(agent.id); e.stopPropagation();}}
+                className="text-red-400 hover:text-red-300 flex items-center gap-1 p-1"
                 disabled={deletingAgent === agent.id}
               >
                 <span>🗑️</span>

@@ -23,7 +23,7 @@ jobs:
         script: |
           cd /home/nikita0607/LLMAgentCreator
           git pull origin master
-          docker-compose down
           docker-compose build
-          docker-compose -f docker-compose.prod.yml up -d
+          docker-compose down
+          docker-compose -f docker-compose.prod.yml up -d --force-recreate
           docker exec -it llm_agents_backend alembic upgrade head

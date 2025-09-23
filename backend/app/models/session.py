@@ -5,7 +5,7 @@ from app.db import Base
 class Session(Base):
     __tablename__ = "session"
     id = Column(Integer, primary_key=True, index=True)
-    agent_id = Column(Integer, ForeignKey("agent.id"), nullable=False)
+    agent_id = Column(Integer, ForeignKey("agent.id", ondelete="SET NULL"), nullable=True)
     user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
     status = Column(String, default="active")
     current_node = Column(String, nullable=True)   # <-- новое поле

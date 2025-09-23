@@ -740,7 +740,7 @@ export default function AgentEditorPage() {
             <button
               className="bg-blue-500 text-black px-4 py-2 font-mono hover:bg-blue-400 transition-colors duration-200"
               style={{ borderRadius: '0.25rem' }}
-              onClick={() => saveToServer(true)}
+              onClick={() => saveToServer(false)}
             >
               :w (save)
             </button>

@@ -93,6 +93,7 @@ export default function HomePage() {
               <Link
                 href={`/agents/${agent.id}`}
                 className="text-blue-400 hover:text-blue-300 hover:underline flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
               >
                 <span>⚙️</span>
                 <span>edit</span>
@@ -100,12 +101,13 @@ export default function HomePage() {
               <Link
                 href={`/agents/${agent.id}/chat`}
                 className="text-green-400 hover:text-green-300 hover:underline flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
               >
                 <span>💬</span>
                 <span>chat</span>
               </Link>
               <button
-                onClick={() => setShowDeleteDialog(agent.id)}
+                onClick={(e) => {setShowDeleteDialog(agent.id); e.stopPropagation();}}
                 className="text-red-400 hover:text-red-300 flex items-center gap-1 p-1"
                 disabled={deletingAgent === agent.id}
               >

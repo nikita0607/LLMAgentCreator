@@ -120,6 +120,9 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     if not db_session:
         raise HTTPException(status_code=404, detail="Session not found")
 
+    if db_session.agent_id is None:
+        raise HTTPException(status_code=404, detail="Agent was deleted")
+
     # Получаем агента
     agent = db.query(Agent).filter(Agent.id == db_session.agent_id).first()
     if not agent:

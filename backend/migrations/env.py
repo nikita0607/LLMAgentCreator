@@ -14,7 +14,6 @@ from app.db import Base
 config = context.config
 # переопределим URL на тот, что в .env
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-print("ASDASD", settings.DATABASE_URL)
 
 # Логгинг
 if config.config_file_name is not None:

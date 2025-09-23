@@ -26,3 +26,4 @@ jobs:
           docker-compose build
           docker-compose down
           docker-compose -f docker-compose.prod.yml up -d --force-recreate
+          docker exec -it llm_agents_backend alembic upgrade head

@@ -9,11 +9,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core.config import settings
 from app.db import Base
 
-from app.models.user import User
-from app.models.session_message import SessionMessage
-from app.models.agent import Agent
-from app.models.session import Session
-from app.models.knowledge_base import KnowledgeEmbedding, KnowledgeNode
 
 # эта конфигурация — из alembic.ini
 config = context.config

@@ -132,8 +132,7 @@ def process_node(nodes: dict[str, dict], node: dict, agent_id: int, user_input: 
         return {
             "reply": reply,
             "next_node": node.get("next"),
-            "conversation_id": conversation_id,
-            "is_forced": True  # Flag to indicate this is a forced message
+            "conversation_id": conversation_id
         }
 
     if node["type"] == "webhook":
@@ -233,11 +232,19 @@ def process_node(nodes: dict[str, dict], node: dict, agent_id: int, user_input: 
         query = user_input["user_text"]
         node_id = node["id"]
 
-        results = service.search_embeddings(agent_id, node_id, query, top_k=5)
+        # Проверяем тип источника знаний
+        source_info = service.get_source_info(agent_id, node_id)
+        
+        if source_info and source_info.get("source_type") == "web":
+            # Для веб-источников выполняем реальный скрапинг
+            results = service.scrape_and_search_web_source(agent_id, node_id, query, top_k=5)
+        else:
+            # Для других источников используем стандартный поиск по embeddings
+            results = service.search_embeddings(agent_id, node_id, query, top_k=5)
 
         reply = ""
         for embedding in results:
-            reply += f"{embedding}\n"
+            reply += f"{embedding[1]}\n"  # embedding[1] содержит текст
 
         return {
             "reply": reply.strip(),

@@ -21,9 +21,11 @@ numpy~=2.3.2
 pgvector~=0.4.1
 pypdf
 langchain_huggingface
-# sentence-transformers
+sentence-transformers
 beautifulsoup4~=4.12.3
 pytest~=8.0.0
+python-docx
+docx2txt
 # Optional dependencies for audio transcription
 # openai-whisper  # For local transcription
 # ffmpeg-python   # For audio file conversion

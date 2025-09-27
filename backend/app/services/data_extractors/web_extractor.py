@@ -122,7 +122,7 @@ class WebDataExtractor(DataExtractor):
             soup = BeautifulSoup(html_content, 'html.parser')
             
             # Удаляем ненужные элементы
-            for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside']):
+            for element in soup(['script', 'style', 'nav', 'header', 'footer', 'aside', 'noscript']):
                 element.decompose()
             
             # Извлекаем метаданные страницы
@@ -131,7 +131,7 @@ class WebDataExtractor(DataExtractor):
             # Извлекаем основной текст
             # Ищем основной контент в приоритетном порядке
             main_content = None
-            for selector in ['main', 'article', '[role="main"]', '.content', '.post', '.article']:
+            for selector in ['main', 'article', '[role="main"]', '.content', '.post', '.article', '.entry-content']:
                 main_content = soup.select_one(selector)
                 if main_content:
                     break

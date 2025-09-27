@@ -27,6 +27,7 @@ backend/
 │   │   └── webhooks.py        # Webhook integration endpoints
 │   ├── core/                  # Core configuration and security
 │   │   ├── config.py          # Application settings
+│   │   ├── run_migrations.py  # Automatic migration script
 │   │   └── security.py        # Authentication and security utilities
 │   ├── models/                # SQLAlchemy ORM models
 │   │   ├── agent.py           # Agent data model
@@ -46,6 +47,9 @@ backend/
 ├── migrations/                # Alembic database migrations
 ├── Dockerfile                 # Container configuration
 ├── alembic.ini               # Alembic configuration
+├── run_migrations.py         # Standalone migration script
+├── run_migrations.sh         # Shell script for migrations
+├── run_migrations.bat        # Windows batch script for migrations
 └── requirements.txt          # Python dependencies
 ```
 
@@ -112,7 +116,7 @@ backend/
    docker-compose up --build
    ```
 
-5. **Run database migrations**:
+5. **Run database migrations** (now automatic, but can be run manually):
    ```bash
    docker exec -it llm_agents_backend alembic upgrade head
    ```
@@ -149,10 +153,15 @@ backend/
    # DATABASE_URL=postgresql://llm:llm@localhost:5432/llm_agents
    ```
 
-5. **Run database migrations**:
+5. **Run database migrations** (now automatic, but can be run manually):
 
    ```bash
+   # Automatic (when starting the application)
+   # Or manually:
    alembic upgrade head
+   
+   # Or using our standalone script:
+   python run_migrations.py
    ```
 
 6. **Start the development server**:
@@ -164,12 +173,19 @@ backend/
 
 ### Running Migrations
 
+Migrations now run automatically when the application starts. However, you can still run them manually:
+
 ```bash
 # Create a new migration
 alembic revision --autogenerate -m "Description of changes"
 
-# Apply migrations
+# Apply migrations manually
 alembic upgrade head
+
+# Using our standalone scripts (choose your platform):
+python run_migrations.py    # Python script
+./run_migrations.sh         # Linux/Mac script
+run_migrations.bat          # Windows batch file
 
 # View migration history
 alembic history
@@ -314,9 +330,11 @@ The application settings are managed through `app/core/config.py` using Pydantic
    export GROQ_API_KEY="your-key"
    ```
 
-3. **Run database migrations**:
+3. **Run database migrations** (automatic on startup):
 
    ```bash
+   # Migrations will run automatically when the app starts
+   # Manual option:
    alembic upgrade head
    ```
 

@@ -202,8 +202,8 @@ class KnowledgeService:
         # Создаем embeddings
         vectors = self.embeddings_model.embed_documents(chunks)
         
-        # Сохраняем в базу
-        [
+        # Создаем объекты embeddings
+        embeddings = [
             KnowledgeEmbedding(
                 kb_id=kb_node.id,
                 chunk_index=idx,
@@ -212,6 +212,10 @@ class KnowledgeService:
             )
             for idx, (chunk, vector) in enumerate(zip(chunks, vectors))
         ]
+        
+        # Сохраняем в базу
+        self.db.add_all(embeddings)
+        self.db.commit()
     
     def search_embeddings(self, agent_id: int, node_id: str, query: str, top_k: int = 5):
         """

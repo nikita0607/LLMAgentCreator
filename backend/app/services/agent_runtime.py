@@ -238,7 +238,6 @@ def process_node(nodes: dict[str, dict], node: dict, agent_id: int, user_input: 
         if source_info and source_info.get("source_type") == "web":
             # Для веб-источников выполняем реальный скрапинг
             results = service.scrape_and_search_web_source(agent_id, node_id, query, top_k=5)
-            print(results)
         else:
             # Для других источников используем стандартный поиск по embeddings
             results = service.search_embeddings(agent_id, node_id, query, top_k=5)

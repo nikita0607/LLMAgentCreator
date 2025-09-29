@@ -255,7 +255,7 @@ class ConditionalLLMNode(Node):
                 "conversation_id": conversation_id
             }
             
-        except Exception as e:
+        except Exception:
             return {
                 "reply": "",
                 "next_node": default_branch,

@@ -157,16 +157,11 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     
     if node_id not in nodes:
         raise HTTPException(status_code=400, detail=f"Node '{node_id}' not found in nodes: {list(nodes.keys())}")
-
-    current_node = nodes[node_id]
     
     # Load last user input from session if available
     last_user_input = None
     if db_session.last_user_input:
-        try:
-            last_user_input = json.loads(db_session.last_user_input)
-        except:
-            pass
+        last_user_input = json.loads(db_session.last_user_input)
     
     # Сохраняем сообщение пользователя
     user_msg = SessionMessage(

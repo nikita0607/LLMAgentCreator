@@ -409,3 +409,17 @@ def get_session_history(session_id: int, db: Session = Depends(get_db), current_
         raise HTTPException(status_code=404, detail="Session not found")
 
     return db_session
+
+
+# New endpoint to get the last session for a user/agent combination
+@router.get("/last/{agent_id}", response_model=SessionOut)
+def get_last_session(agent_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    db_session = db.query(SessionModel).filter(
+        SessionModel.agent_id == agent_id,
+        SessionModel.user_id == current_user.id
+    ).order_by(SessionModel.created_at.desc()).first()
+    
+    if not db_session:
+        raise HTTPException(status_code=404, detail="No previous session found")
+        
+    return db_session

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from app.services.knowledge_service import KnowledgeService
 from app.services.webhook import call_webhook
 from app.services.elevenlabs_chat import chat_with_agent

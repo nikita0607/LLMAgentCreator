@@ -1,31 +1,7 @@
 // Types for knowledge source system
 
+// Source type enumeration
 export type SourceType = 'file' | 'web' | 'audio';
-
-export interface KnowledgeNodeInfo {
-  id: number;
-  agent_id: number;
-  node_id: string;
-  name: string;
-  source_type: SourceType;
-  source_data?: Record<string, any>;
-  extractor_metadata?: Record<string, any>;
-  created_at?: string;
-  updated_at?: string;
-  embeddings_count: number;
-}
-
-export interface SupportedTypesResponse {
-  supported_types: Record<string, string[]>;
-}
-
-export interface SourceUploadResult {
-  status: string;
-  knowledge_node_id: number;
-  filename?: string;
-  url?: string;
-  source_type: SourceType;
-}
 
 // Source input interfaces
 export interface FileSourceInput {
@@ -41,6 +17,34 @@ export interface UrlSourceInput {
 export interface AudioSourceInput {
   file: File;
   description?: string;
+}
+
+// Source upload result interface
+export interface SourceUploadResult {
+  status: string;
+  knowledge_node_id: number;
+  filename?: string;
+  url?: string;
+  source_type: string;
+}
+
+// Knowledge node info interface
+export interface KnowledgeNodeInfo {
+  id: number;
+  agent_id: number;
+  node_id: string;
+  name: string;
+  source_type: SourceType;
+  source_data?: Record<string, any>;
+  extractor_metadata?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
+  embeddings_count: number;
+}
+
+// Supported types response
+export interface SupportedTypesResponse {
+  supported_types: Record<string, string[]>;
 }
 
 // Component props interfaces
@@ -68,7 +72,7 @@ export interface ConditionalBranch {
 export interface ExtendedNodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message";
+  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input";
   action?: string;
   url?: string;
   method?: string;
@@ -104,7 +108,7 @@ export interface SourceTypeConfig {
   icon: string;
   description: string;
   acceptedFileTypes?: string[];
-  component: React.ComponentType<SourceComponentProps>;
+  component: any; // Using 'any' instead of React.ComponentType to avoid import issues
 }
 
 // API response types

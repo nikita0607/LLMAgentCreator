@@ -29,7 +29,7 @@ class ConditionalBranch(BaseModel):
 class NodeLogic(BaseModel):
     id: str
     text: str
-    type: str  # "message", "webhook", "knowledge", "conditional_llm", "forced_message"
+    type: str  # "webhook", "knowledge", "conditional_llm", "forced_message", "wait_for_user_input"
     next: Optional[str] = None
     action: Optional[str] = None
     url: Optional[str] = None

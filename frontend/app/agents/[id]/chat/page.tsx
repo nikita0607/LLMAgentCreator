@@ -129,15 +129,22 @@ export default function ChatPage() {
       // Handle multiple messages from the response
       if (response.messages && response.messages.length > 0) {
         console.log("Received multiple messages:", response.messages);
-        const agentMessages: Message[] = response.messages.map((text: string) => ({
-          sender: "agent" as const,
-          text: text
-        }));
-        setMessages((msgs: Message[]) => [...msgs, ...agentMessages]);
+        const agentMessages: Message[] = response.messages
+          .filter((text: string) => text && text.trim() !== "") // Filter out empty/null messages
+          .map((text: string) => ({
+            sender: "agent" as const,
+            text: text
+          }));
+        if (agentMessages.length > 0) { // Only add if there are non-empty messages
+          setMessages((msgs: Message[]) => [...msgs, ...agentMessages]);
+        }
       } else if (response.reply) {
         console.log("Received single reply:", response.reply);
-        const reply: Message = { sender: "agent", text: response.reply };
-        setMessages((msgs: Message[]) => [...msgs, reply]);
+        // Only add non-empty replies
+        if (response.reply && response.reply.trim() !== "") {
+          const reply: Message = { sender: "agent", text: response.reply };
+          setMessages((msgs: Message[]) => [...msgs, reply]);
+        }
       }
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);

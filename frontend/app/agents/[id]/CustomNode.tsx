@@ -21,6 +21,7 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
       case 'conditional_llm': return 'LLM Module';
       case 'webhook': return 'Webhook';
       case 'forced_message': return 'Forced Message';
+      case 'wait_for_user_input': return 'Wait for Input';
       default: return nodeType;
     }
   };
@@ -237,9 +238,9 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
             }} 
           />
         </>
-      ) : data.type === "conditional_llm" && data.branches ? (
+      ) : data.type === "conditional_llm" ? (
         <>
-          {data.branches.map((branch, index) => {
+          {data.branches && data.branches.map((branch, index) => {
             // Calculate position to align with each branch preview item
             const titleHeight = 50;
             const branchesHeaderHeight = 18;
@@ -272,7 +273,7 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
               position={Position.Right} 
               id="default"
               style={{ 
-                top: `${50 + 18 + (data.branches!.length * 30) + 16}px`,
+                top: `${50 + 18 + ((data.branches?.length || 0) * 30) + 16}px`,
                 background: '#7d8590',
                 border: '2px solid #0d1117',
                 position: 'absolute',

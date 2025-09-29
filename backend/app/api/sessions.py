@@ -476,10 +476,7 @@ def trigger_forced_messages(session_id: int, db: Session = Depends(get_db), curr
     # Load last user input from session if available
     last_user_input = None
     if db_session.last_user_input:
-        try:
-            last_user_input = json.loads(db_session.last_user_input)
-        except:
-            pass
+        last_user_input = json.loads(db_session.last_user_input)
     
     # Process forced message chain
     messages = []

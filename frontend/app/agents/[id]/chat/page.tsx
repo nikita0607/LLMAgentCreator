@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api";
@@ -14,81 +14,109 @@ export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   const agentId = Number(params.id);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [agentName, setAgentName] = useState("");
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [useLastSession, setUseLastSession] = useState(true); // Flag to track if we're using last session
 
-  // Загружаем агента и создаём сессию
+  // Scroll to bottom of chat
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Function to create a new session
+  const createNewSession = async () => {
+    try {
+      const sessionResponse = await apiFetch(`/sessions/`, {
+        method: "POST",
+        body: JSON.stringify({ agent_id: agentId }),
+      });
+      
+      // Check if response has session_id (new format) or id (old format)
+      const actualSessionId = sessionResponse.session_id || sessionResponse.id;
+      setSessionId(actualSessionId);
+      setUseLastSession(false); // We're now using a new session
+      
+      // Clear messages and add initial forced message if exists
+      setMessages([]);
+      
+      if (sessionResponse.messages && sessionResponse.messages.length > 0) {
+        const initialMessages: Message[] = sessionResponse.messages.map((text: string) => ({
+          sender: "agent" as const,
+          text: text
+        }));
+        setMessages(initialMessages);
+      } else if (sessionResponse.reply && sessionResponse.reply.trim()) {
+        const initialMessage: Message = {
+          sender: "agent",
+          text: sessionResponse.reply
+        };
+        setMessages([initialMessage]);
+      }
+    } catch (err) {
+      console.error("Ошибка создания новой сессии:", err);
+    }
+  };
+
+  // Загружаем агента и используем последнюю сессию или создаём новую
   useEffect(() => {
     async function initChat() {
       try {
         const agent = await apiFetch(`/agents/${agentId}`);
         setAgentName(agent.name);
 
-        const sessionResponse = await apiFetch(`/sessions/`, {
-          method: "POST",
-          body: JSON.stringify({ agent_id: agentId }),
-        });
-        
-        // Check if response has session_id (new format) or id (old format)
-        const actualSessionId = sessionResponse.session_id || sessionResponse.id;
-        setSessionId(actualSessionId);
-        
-        // If there's an initial forced message, add it to messages
-        if (sessionResponse.messages && sessionResponse.messages.length > 0) {
-          const initialMessages: Message[] = sessionResponse.messages.map((text: string) => ({
-            sender: "agent" as const,
-            text: text
-          }));
-          setMessages(initialMessages);
-        } else if (sessionResponse.reply && sessionResponse.reply.trim()) {
-          const initialMessage: Message = {
-            sender: "agent",
-            text: sessionResponse.reply
-          };
-          setMessages([initialMessage]);
-        }
-
-        // подгружаем историю, если есть
-        if (actualSessionId) {
+        // Try to get the last session first
+        if (useLastSession) {
           try {
-            const history = await apiFetch(`/sessions/${actualSessionId}/history`);
-            if (history?.messages) {
-              const msgs: Message[] = history.messages.map((m: any) => ({
-                sender: m.sender === "user" ? "user" : "agent",
-                text: m.text,
-              }));
-              // If we already have initial messages, append to them
-              setMessages(prevMessages => {
-                if (prevMessages.length > 0) {
-                  // Merge with existing initial messages, avoiding duplicates
-                  const existingTexts = new Set(prevMessages.map(m => m.text));
-                  const newMsgs = msgs.filter(m => !existingTexts.has(m.text));
-                  return [...prevMessages, ...newMsgs];
-                } else {
-                  return msgs;
-                }
-              });
+            const lastSession = await apiFetch(`/sessions/last/${agentId}`);
+            const actualSessionId = lastSession.id;
+            setSessionId(actualSessionId);
+            setUseLastSession(true);
+            
+            // Load history for the last session
+            try {
+              const history = await apiFetch(`/sessions/${actualSessionId}/history`);
+              if (history?.messages) {
+                const msgs: Message[] = history.messages.map((m: any) => ({
+                  sender: m.sender === "user" ? "user" : "agent",
+                  text: m.text,
+                }));
+                setMessages(msgs);
+              }
+            } catch (historyErr) {
+              console.log("No history available for last session:", historyErr);
+              setMessages([]);
             }
-          } catch (historyErr) {
-            console.log("No history available or error loading history:", historyErr);
+            return; // Successfully loaded last session, exit early
+          } catch (lastSessionErr) {
+            console.log("No last session found, creating new one:", lastSessionErr);
+            // Continue to create new session if no last session found
           }
         }
+        
+        // Create new session if no last session or if explicitly requested
+        await createNewSession();
       } catch (err) {
         console.error("Ошибка инициализации чата:", err);
       }
     }
     if (agentId) initChat();
-  }, [agentId]);
+  }, [agentId, useLastSession]);
 
   const sendMessage = async () => {
     if (!input.trim() || !sessionId) return;
 
     const userMessage: Message = { sender: "user", text: input };
-    setMessages((msgs) => [...msgs, userMessage]);
+    setMessages((msgs: Message[]) => [...msgs, userMessage]);
     setInput("");
     setLoading(true);
 
@@ -105,15 +133,15 @@ export default function ChatPage() {
           sender: "agent" as const,
           text: text
         }));
-        setMessages((msgs) => [...msgs, ...agentMessages]);
+        setMessages((msgs: Message[]) => [...msgs, ...agentMessages]);
       } else if (response.reply) {
         console.log("Received single reply:", response.reply);
         const reply: Message = { sender: "agent", text: response.reply };
-        setMessages((msgs) => [...msgs, reply]);
+        setMessages((msgs: Message[]) => [...msgs, reply]);
       }
     } catch (err) {
       console.error("Ошибка при отправке сообщения:", err);
-      setMessages((msgs) => [
+      setMessages((msgs: Message[]) => [
         ...msgs,
         { sender: "agent", text: "Ошибка сервера" },
       ]);
@@ -141,14 +169,24 @@ export default function ChatPage() {
               </h1>
             </div>
           </div>
-          <Link
-            href={`/agents/${agentId}`}
-            className="bg-transparent border border-cyan-400 text-cyan-400 px-4 py-2 font-mono hover:bg-cyan-400 hover:text-black transition-all duration-200 flex items-center gap-2"
-            style={{ borderRadius: '0.25rem' }}
-          >
-            <span>⚙️</span>
-            <span>vim config</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={createNewSession}
+              className="bg-transparent border border-cyan-400 text-cyan-400 px-4 py-2 font-mono hover:bg-cyan-400 hover:text-black transition-all duration-200 flex items-center gap-2"
+              style={{ borderRadius: '0.25rem' }}
+            >
+              <span>🔄</span>
+              <span>new session</span>
+            </button>
+            <Link
+              href={`/agents/${agentId}`}
+              className="bg-transparent border border-cyan-400 text-cyan-400 px-4 py-2 font-mono hover:bg-cyan-400 hover:text-black transition-all duration-200 flex items-center gap-2"
+              style={{ borderRadius: '0.25rem' }}
+            >
+              <span>⚙️</span>
+              <span>vim config</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -189,6 +227,7 @@ export default function ChatPage() {
                 </div>
               </div>
             )}
+            <div ref={messagesEndRef} />
           </div>
         </div>
       </div>

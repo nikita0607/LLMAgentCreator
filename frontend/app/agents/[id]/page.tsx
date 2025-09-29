@@ -44,7 +44,7 @@ interface NodeParam {
 interface NodeData {
   id: string;
   label: string;
-  type: "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message";
+  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input";
   action?: string;
   url?: string;
   method?: string;
@@ -304,7 +304,7 @@ export default function AgentEditorPage() {
 
           const agentEdges: Edge[] = [];
           data.logic.nodes.forEach((n: any) => {
-            if (n.type === "message" && n.next) {
+            if (n.type === "wait_for_user_input" && n.next) {
               agentEdges.push({
                 id: `${n.id}->${n.next}`,
                 source: n.id,
@@ -444,7 +444,7 @@ export default function AgentEditorPage() {
     const newNodeData: ExtendedNodeData = {
       id: newId,
       label: "New Node",
-      type: "message",
+      type: "wait_for_user_input", // Changed default to wait_for_user_input
       params: []
     };
     
@@ -602,7 +602,7 @@ export default function AgentEditorPage() {
           text: data.label,
         };
 
-        if (data.type === "message" || data.type === "knowledge" || data.type === "forced_message") {
+        if (data.type === "wait_for_user_input" || data.type === "knowledge" || data.type === "forced_message") {
           const out = outgoing[n.id]?.[0];
           if (out) base.next = out.target;
         }
@@ -899,13 +899,13 @@ export default function AgentEditorPage() {
                     onChange={(e) =>
                       setEditNode({
                         ...editNode,
-                        type: e.target.value as "message" | "webhook" | "knowledge" | "conditional_llm" | "forced_message",
+                        type: e.target.value as "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input",
                       })
                     }
                     className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-4 focus:border-green-400 focus:outline-none"
                     style={{ borderRadius: '0.25rem' }}
                   >
-                    <option value="message">message</option>
+                    <option value="wait_for_user_input">wait_for_user_input</option>
                     <option value="webhook">webhook</option>
                     <option value="knowledge">knowledge</option>
                     <option value="conditional_llm">conditional_llm</option>
@@ -1212,6 +1212,17 @@ export default function AgentEditorPage() {
                     </div>
                   )}
 
+                  {editNode.type === "wait_for_user_input" && (
+                    <div className="mb-4">
+                      <label className="block mb-2 text-gray-800">Wait for User Input Node</label>
+                      <p className="text-sm text-gray-500 mb-4">
+                        This node will wait for user input and save it for use in subsequent nodes.
+                      </p>
+                      <p className="text-xs text-blue-600">
+                        The user input will be automatically captured and stored in the session.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-600">
                     <button

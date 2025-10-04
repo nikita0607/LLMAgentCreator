@@ -87,24 +87,6 @@ export class KnowledgeApi {
   }
 
   /**
-   * Search knowledge embeddings
-   */
-  static async searchKnowledge(
-    agentId: string,
-    nodeId: string,
-    query: string,
-    topK: number = 5
-  ) {
-    return apiFetch(`/knowledge/search/${agentId}/${nodeId}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        query,
-        top_k: topK
-      }),
-    });
-  }
-
-  /**
    * Get supported source types
    */
   static async getSupportedTypes(): Promise<SupportedTypesResponse> {

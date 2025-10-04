@@ -43,6 +43,9 @@ class NodeLogic(BaseModel):
     default_branch: Optional[str] = None  # Узел по умолчанию, если ни одно условие не подошло
     # Поле для forced_message
     forced_text: Optional[str] = None  # Принудительное сообщение для автоматической отправки
+    reference_node_id: Optional[str] = None  # Reference to another node's ID
+    # Поле для llm_request
+    system_prompt: Optional[str] = None  # System prompt for LLM request nodes
     position: Dict[str, Any] = None  # {"x": float, "y": float}
 
 class AgentLogic(BaseModel):

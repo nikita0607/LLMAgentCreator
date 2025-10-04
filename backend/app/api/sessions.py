@@ -14,6 +14,58 @@ import json
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
+def extract_edges_from_logic(logic: dict) -> list:
+    """Extract edges from agent logic based on node connections."""
+    edges = []
+    nodes = {n["id"]: n for n in logic.get("nodes", [])}
+    
+    for node in logic.get("nodes", []):
+        node_id = node["id"]
+        node_type = node["type"]
+        
+        # Handle different node types and their connections
+        if node_type in ["wait_for_user_input", "knowledge", "forced_message", "llm_request"]:
+            # These nodes have a single 'next' connection
+            if "next" in node and node["next"]:
+                edges.append({
+                    "source": node_id,
+                    "target": node["next"],
+                    "sourceHandle": "default"
+                })
+        elif node_type == "conditional_llm":
+            # Handle conditional branches
+            if "branches" in node:
+                for branch in node["branches"]:
+                    if "next_node" in branch and branch["next_node"]:
+                        edges.append({
+                            "source": node_id,
+                            "target": branch["next_node"],
+                            "sourceHandle": branch.get("id", "default")
+                        })
+            # Handle default branch
+            if "default_branch" in node and node["default_branch"]:
+                edges.append({
+                    "source": node_id,
+                    "target": node["default_branch"],
+                    "sourceHandle": "default"
+                })
+        elif node_type == "webhook":
+            # Handle success and failure connections
+            if "on_success" in node and node["on_success"]:
+                edges.append({
+                    "source": node_id,
+                    "target": node["on_success"],
+                    "sourceHandle": "success"
+                })
+            if "on_failure" in node and node["on_failure"]:
+                edges.append({
+                    "source": node_id,
+                    "target": node["on_failure"],
+                    "sourceHandle": "failure"
+                })
+    
+    return edges
+
 @router.post("/", response_model=MessageOut)  # Changed response model
 def create_session(session: SessionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     agent = db.query(Agent).filter(Agent.id == session.agent_id, Agent.owner_id == current_user.id).first()
@@ -28,6 +80,9 @@ def create_session(session: SessionCreate, db: Session = Depends(get_db), curren
     # After creating session, check if we need to process initial forced messages
     logic = agent.logic or {}
     nodes = {n["id"]: n for n in logic.get("nodes", [])}
+    
+    # Extract edges from logic
+    edges = extract_edges_from_logic(logic)
     
     # Find start node
     start_node_id = logic.get("start_node")
@@ -59,7 +114,8 @@ def create_session(session: SessionCreate, db: Session = Depends(get_db), curren
                     system_prompt=agent.system_prompt,
                     voice_id=agent.voice_id,
                     conversation_id=conversation_id,
-                    last_user_input=last_user_input
+                    last_user_input=last_user_input,
+                    edges=edges  # Pass edges information
                 )
                 
                 # Save the forced message response
@@ -67,7 +123,8 @@ def create_session(session: SessionCreate, db: Session = Depends(get_db), curren
                     session_id=db_session.id,
                     sender="agent",
                     text=result["reply"],
-                    action=result.get("action")
+                    action=result.get("action"),
+                    node_id=current_node_id  # Save the node ID that generated this message
                 )
                 db.add(agent_msg)
                 messages.append(agent_msg)
@@ -122,6 +179,10 @@ def get_session(session_id: int, db: Session = Depends(get_db), current_user: Us
 
 @router.post("/{session_id}/message", response_model=MessageOut)
 def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    print(f"=== NEW MESSAGE RECEIVED ===")
+    print(f"Session ID: {session_id}")
+    print(f"Message: {msg.text}")
+    
     # Получаем сессию
     db_session = db.query(SessionModel).filter(
         SessionModel.id == session_id,
@@ -142,6 +203,9 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     logic = agent.logic or {}
     nodes = {n["id"]: n for n in logic.get("nodes", [])}
     
+    # Extract edges from logic
+    edges = extract_edges_from_logic(logic)
+    
     # Try to get current node, fallback to start node, then to first available node
     node_id = None
     if db_session.current_node and db_session.current_node in nodes:
@@ -158,10 +222,13 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     if node_id not in nodes:
         raise HTTPException(status_code=400, detail=f"Node '{node_id}' not found in nodes: {list(nodes.keys())}")
     
+    print(f"Starting node processing from node ID: {node_id}")
+    
     # Load last user input from session if available
     last_user_input = None
     if db_session.last_user_input:
         last_user_input = json.loads(db_session.last_user_input)
+        print(f"Loaded last user input: {last_user_input}")
     
     # Сохраняем сообщение пользователя
     user_msg = SessionMessage(
@@ -178,219 +245,107 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     forced_chain_count = 0
     current_node_id = node_id
     
-    # First, process any forced messages that should run before handling user input
-    while (current_node_id and current_node_id in nodes and 
-           nodes[current_node_id]["type"] == "forced_message" and 
-           forced_chain_count < max_forced_chain):
-        
-        forced_chain_count += 1
+    print(f"=== STARTING NODE PROCESSING LOOP ===")
+    
+    # Process nodes in sequence - only wait_for_user_input nodes should use the actual user input
+    while current_node_id and current_node_id in nodes and forced_chain_count < max_forced_chain:
         current_node = nodes[current_node_id]
+        node_type = current_node["type"]
         
-        # Process the forced message node
-        result = process_node(
-            nodes,
-            current_node,
-            agent_id=db_session.agent_id,
-            user_input={'user_text': ''},  # Empty input for forced messages
-            system_prompt=agent.system_prompt,
-            voice_id=agent.voice_id,
-            conversation_id=conversation_id,
-            last_user_input=last_user_input
-        )
+        print(f"--- Processing Node #{forced_chain_count + 1} ---")
+        print(f"Current Node ID: {current_node_id}")
+        print(f"Current Node Type: {node_type}")
         
-        # Save the forced message response
-        agent_msg = SessionMessage(
-            session_id=db_session.id,
-            sender="agent",
-            text=result["reply"],
-            action=result.get("action")
-        )
-        db.add(agent_msg)
-        messages.append(agent_msg)
+        # Increment counter for all nodes to prevent infinite loops
+        forced_chain_count += 1
+        
+        # Only wait_for_user_input nodes should receive the actual user input
+        # All other nodes should process automatically with last_user_input or no input
+        if node_type == "wait_for_user_input":
+            print("NODE TYPE: WAIT_FOR_USER_INPUT")
+            # This node saves the user input for later use
+            last_user_input = {'user_text': msg.text}
+            db_session.last_user_input = json.dumps(last_user_input)
+            print(f"Saved user input: {last_user_input}")
+            
+            # Process the wait_for_user_input node
+            result = process_node(
+                nodes,
+                current_node,
+                agent_id=db_session.agent_id,
+                user_input={'user_text': msg.text},  # Actual user input for wait_for_user_input nodes
+                system_prompt=agent.system_prompt,
+                voice_id=agent.voice_id,
+                conversation_id=conversation_id,
+                last_user_input=last_user_input,
+                edges=edges
+            )
+        else:
+            print(f"NODE TYPE: {node_type.upper()} (AUTOMATIC PROCESSING)")
+            # All other nodes process automatically without waiting for user input
+            result = process_node(
+                nodes,
+                current_node,
+                agent_id=db_session.agent_id,
+                user_input=None,  # No user input for automatic nodes
+                system_prompt=agent.system_prompt,
+                voice_id=agent.voice_id,
+                conversation_id=conversation_id,
+                last_user_input=last_user_input,
+                edges=edges
+            )
+        
+        # Save the response if there's a reply
+        if result.get("reply"):
+            print(f"Saving agent reply: {result['reply']}")
+            agent_msg = SessionMessage(
+                session_id=db_session.id,
+                sender="agent",
+                text=result["reply"],
+                action=result.get("action"),
+                node_id=current_node_id  # Save the node ID that generated this message
+            )
+            db.add(agent_msg)
+            messages.append(agent_msg)
         
         # Update conversation_id
         if "conversation_id" in result:
             conversation_id = result["conversation_id"]
-        
+            print(f"Updated conversation ID: {conversation_id}")
+            
         # Save last user input if provided
         if "save_last_user_input" in result and result["save_last_user_input"]:
             last_user_input = result["save_last_user_input"]
             # Save to session
             db_session.last_user_input = json.dumps(last_user_input)
-        
+            print(f"Updated last user input from node result: {last_user_input}")
+            
         # Move to next node
+        previous_node_id = current_node_id
         current_node_id = result.get("next_node")
-        if not current_node_id or current_node_id not in nodes:
-            break
-    
-    # Now process the user's input with the current node
-    if current_node_id and current_node_id in nodes:
-        current_node = nodes[current_node_id]
+        print(f"Moving from node {previous_node_id} to next node: {current_node_id}")
         
-        # Check if we need to wait for user input
-        if current_node["type"] == "wait_for_user_input":
-            # This node just saves the user input for later use
-            last_user_input = {'user_text': msg.text}
-            db_session.last_user_input = json.dumps(last_user_input)
-            
-            # Move to the next node
-            current_node_id = current_node.get("next")
-            
-            # If there's a next node, process it with the user input immediately
+        # If we just processed a wait_for_user_input node, we should stop and wait for next user input
+        # unless there's a forced_message node next
+        if node_type == "wait_for_user_input":
+            print("Finished processing WAIT_FOR_USER_INPUT node")
+            # After processing wait_for_user_input, check if next node is forced_message
             if current_node_id and current_node_id in nodes:
                 next_node = nodes[current_node_id]
-                result = process_node(
-                    nodes,
-                    next_node,
-                    agent_id=db_session.agent_id,
-                    user_input={'user_text': msg.text},
-                    system_prompt=agent.system_prompt,
-                    voice_id=agent.voice_id,
-                    conversation_id=conversation_id,
-                    last_user_input=last_user_input
-                )
-                
-                # Save the response to user's message
-                agent_msg = SessionMessage(
-                    session_id=db_session.id,
-                    sender="agent",
-                    text=result["reply"],
-                    action=result.get("action")
-                )
-                db.add(agent_msg)
-                messages.append(agent_msg)
-                
-                # Update conversation_id
-                if "conversation_id" in result:
-                    conversation_id = result["conversation_id"]
-                    
-                # Save last user input if provided
-                if "save_last_user_input" in result and result["save_last_user_input"]:
-                    last_user_input = result["save_last_user_input"]
-                    # Save to session
-                    db_session.last_user_input = json.dumps(last_user_input)
-                    
-                # Update current node
-                current_node_id = result.get("next_node")
-                
-                # Continue processing any additional forced messages after user response
-                while (current_node_id and current_node_id in nodes and 
-                       nodes[current_node_id]["type"] == "forced_message" and 
-                       forced_chain_count < max_forced_chain):
-                    
-                    forced_chain_count += 1
-                    current_node = nodes[current_node_id]
-                    
-                    result = process_node(
-                        nodes,
-                        current_node,
-                        agent_id=db_session.agent_id,
-                        user_input={'user_text': ''},
-                        system_prompt=agent.system_prompt,
-                        voice_id=agent.voice_id,
-                        conversation_id=conversation_id,
-                        last_user_input=last_user_input
-                    )
-                    
-                    agent_msg = SessionMessage(
-                        session_id=db_session.id,
-                        sender="agent",
-                        text=result["reply"],
-                        action=result.get("action")
-                    )
-                    db.add(agent_msg)
-                    messages.append(agent_msg)
-                    
-                    # Update conversation_id
-                    if "conversation_id" in result:
-                        conversation_id = result["conversation_id"]
-                    
-                    # Save last user input if provided
-                    if "save_last_user_input" in result and result["save_last_user_input"]:
-                        last_user_input = result["save_last_user_input"]
-                        # Save to session
-                        db_session.last_user_input = json.dumps(last_user_input)
-                    
-                    current_node_id = result.get("next_node")
-                    if not current_node_id or current_node_id not in nodes:
-                        break
-        else:
-            # Process user input with the current node
-            result = process_node(
-                nodes,
-                current_node,
-                agent_id=db_session.agent_id,
-                user_input={'user_text': msg.text},
-                system_prompt=agent.system_prompt,
-                voice_id=agent.voice_id,
-                conversation_id=conversation_id,
-                last_user_input=last_user_input
-            )
-            
-            # Save the response to user's message
-            agent_msg = SessionMessage(
-                session_id=db_session.id,
-                sender="agent",
-                text=result["reply"],
-                action=result.get("action")
-            )
-            db.add(agent_msg)
-            messages.append(agent_msg)
-            
-            # Update conversation_id
-            if "conversation_id" in result:
-                conversation_id = result["conversation_id"]
-                
-            # Save last user input if provided
-            if "save_last_user_input" in result and result["save_last_user_input"]:
-                last_user_input = result["save_last_user_input"]
-                # Save to session
-                db_session.last_user_input = json.dumps(last_user_input)
-                
-            # Update current node
-            current_node_id = result.get("next_node")
-            
-            # Continue processing any additional forced messages after user response
-            while (current_node_id and current_node_id in nodes and 
-                   nodes[current_node_id]["type"] == "forced_message" and 
-                   forced_chain_count < max_forced_chain):
-                
-                forced_chain_count += 1
-                current_node = nodes[current_node_id]
-                
-                result = process_node(
-                    nodes,
-                    current_node,
-                    agent_id=db_session.agent_id,
-                    user_input={'user_text': ''},
-                    system_prompt=agent.system_prompt,
-                    voice_id=agent.voice_id,
-                    conversation_id=conversation_id,
-                    last_user_input=last_user_input
-                )
-                
-                agent_msg = SessionMessage(
-                    session_id=db_session.id,
-                    sender="agent",
-                    text=result["reply"],
-                    action=result.get("action")
-                )
-                db.add(agent_msg)
-                messages.append(agent_msg)
-                
-                # Update conversation_id
-                if "conversation_id" in result:
-                    conversation_id = result["conversation_id"]
-                
-                # Save last user input if provided
-                if "save_last_user_input" in result and result["save_last_user_input"]:
-                    last_user_input = result["save_last_user_input"]
-                    # Save to session
-                    db_session.last_user_input = json.dumps(last_user_input)
-                
-                current_node_id = result.get("next_node")
-                if not current_node_id or current_node_id not in nodes:
+                if next_node["type"] == "wait_for_user_input":
+                    # Stop processing and wait for next user input
+                    print("Next node is wait_for_user_input, stopping processing to wait for user input")
                     break
+            else:
+                # No next node, stop processing
+                print("No next node, stopping processing")
+                break
+        
+        print("--- Finished Processing Node ---\n")
+    
+    print(f"=== END NODE PROCESSING LOOP ===")
+    print(f"Final current node ID: {current_node_id}")
+    print(f"Total nodes processed: {forced_chain_count}")
     
     # Update session state
     db_session.current_node = current_node_id
@@ -403,6 +358,7 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
     if messages:
         # Return individual messages instead of concatenating
         message_texts = [msg.text for msg in messages]
+        print(f"Returning {len(message_texts)} messages")
         return {
             "reply": message_texts[0] if len(message_texts) == 1 else "",  # First message as main reply
             "messages": message_texts,  # All messages as separate items
@@ -414,6 +370,7 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
         # Check if we're at a wait_for_user_input node with no next node
         if current_node_id and current_node_id in nodes and nodes[current_node_id]["type"] == "wait_for_user_input":
             # We've processed a wait_for_user_input node but haven't moved to a node that generates a response
+            print("No messages generated, waiting for user input at wait_for_user_input node")
             return {
                 "reply": "",  # Empty reply as we're waiting for the next user input
                 "next_node": current_node_id,
@@ -421,6 +378,7 @@ def send_message(session_id: int, msg: MessageIn, db: Session = Depends(get_db),
             }
         else:
             # No messages processed (shouldn't happen normally)
+            print("No messages generated and not at wait_for_user_input node")
             return {
                 "reply": "No response generated",
                 "next_node": current_node_id,
@@ -449,6 +407,9 @@ def trigger_forced_messages(session_id: int, db: Session = Depends(get_db), curr
     # Подготовка логики
     logic = agent.logic or {}
     nodes = {n["id"]: n for n in logic.get("nodes", [])}
+    
+    # Extract edges from logic
+    edges = extract_edges_from_logic(logic)
     
     # Try to get current node, fallback to start node
     node_id = None
@@ -497,7 +458,8 @@ def trigger_forced_messages(session_id: int, db: Session = Depends(get_db), curr
             system_prompt=agent.system_prompt,
             voice_id=agent.voice_id,
             conversation_id=conversation_id,
-            last_user_input=last_user_input
+            last_user_input=last_user_input,
+            edges=edges  # Pass edges information
         )
         
         # Save the response
@@ -505,7 +467,8 @@ def trigger_forced_messages(session_id: int, db: Session = Depends(get_db), curr
             session_id=db_session.id,
             sender="agent",
             text=result["reply"],
-            action=result.get("action")
+            action=result.get("action"),
+            node_id=current_node_id  # Save the node ID that generated this message
         )
         db.add(agent_msg)
         messages.append(agent_msg)

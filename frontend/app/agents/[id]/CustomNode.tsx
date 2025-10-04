@@ -11,6 +11,11 @@ interface CustomNodeProps {
 
 interface ForcedMessageNodeData extends ExtendedNodeData {
   forced_text?: string;
+  reference_node_id?: string;
+}
+
+interface LLMRequestNodeData extends ExtendedNodeData {
+  system_prompt?: string;
 }
 
 export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) => {
@@ -22,6 +27,7 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
       case 'webhook': return 'Webhook';
       case 'forced_message': return 'Forced Message';
       case 'wait_for_user_input': return 'Wait for Input';
+      case 'llm_request': return 'LLM Request';
       default: return nodeType;
     }
   };
@@ -119,13 +125,6 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
             </span>
           </div>
           
-          {/* Show embeddings count if available */}
-          {data.embeddings_count !== undefined && (
-            <div className="text-xs text-blue-400">
-              vectors: {data.embeddings_count}
-            </div>
-          )}
-          
           {/* Show last updated if available */}
           {data.updated_at && (
             <div className="text-xs text-gray-500">
@@ -149,14 +148,22 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
       )}
 
       {/* Terminal-style forced message display */}
-      {data.type === "forced_message" && (data as ForcedMessageNodeData).forced_text && (
+      {data.type === "forced_message" && (
         <div className="text-xs text-gray-300 mt-2 p-2 bg-gray-800 border border-blue-500" style={{ borderRadius: '0.25rem' }}>
           <div className="font-medium text-blue-400 mb-1">auto_message:</div>
-          <div className="text-gray-300 font-mono break-words">
-            "{(data as ForcedMessageNodeData).forced_text!.length > 40 
-              ? `${(data as ForcedMessageNodeData).forced_text!.substring(0, 40)}...` 
-              : (data as ForcedMessageNodeData).forced_text}"
-          </div>
+          {(data as ForcedMessageNodeData).reference_node_id ? (
+            <div className="text-gray-300 font-mono break-words">
+              "Referencing node: {(data as ForcedMessageNodeData).reference_node_id}"
+            </div>
+          ) : (data as ForcedMessageNodeData).forced_text ? (
+            <div className="text-gray-300 font-mono break-words">
+              "{(data as ForcedMessageNodeData).forced_text!.length > 40 
+                ? `${(data as ForcedMessageNodeData).forced_text!.substring(0, 40)}...` 
+                : (data as ForcedMessageNodeData).forced_text}"
+            </div>
+          ) : (
+            <div className="text-gray-500 italic">No message configured</div>
+          )}
         </div>
       )}
 
@@ -192,6 +199,22 @@ export const CustomNode = ({ data, id, isStartNode = false }: CustomNodeProps) =
               <div className="w-2 h-2 rounded-full ml-2 flex-shrink-0 bg-gray-500" />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Terminal-style LLM request display */}
+      {data.type === "llm_request" && (
+        <div className="text-xs text-gray-300 mt-2 space-y-1 border-l-2 border-gray-600 pl-2">
+          <div className="font-medium text-yellow-400">LLM Request Node</div>
+          {data.system_prompt && (
+            <div className="text-xs text-gray-300">
+              <span className="text-cyan-400">System Prompt:</span> {data.system_prompt.length > 30 ? `${data.system_prompt.substring(0, 30)}...` : data.system_prompt}
+            </div>
+          )}
+
+          <div className="text-xs text-blue-400">
+            Uses connected knowledge & webhook context
+          </div>
         </div>
       )}
 

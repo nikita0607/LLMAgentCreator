@@ -23,19 +23,4 @@ class KnowledgeNodeRead(BaseModel):
         orm_mode = True
 
 
-# ---------- KnowledgeEmbedding ----------
-class KnowledgeEmbeddingCreate(BaseModel):
-    node_id: str
-    chunk_index: int
-    embedding: List[float]
-    text_chunk: str
-
-
-class KnowledgeEmbeddingRead(BaseModel):
-    id: int
-    node_id: str
-    chunk_index: int
-    text_chunk: str
-
-    class Config:
-        orm_mode = True
+# Removed KnowledgeEmbedding schemas as we're no longer using embeddings

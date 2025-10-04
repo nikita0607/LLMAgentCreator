@@ -1,21 +1,15 @@
-import io
-from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from typing import Optional, Dict, Any, List
+import io
 
-from app.models.knowledge_base import KnowledgeNode, KnowledgeEmbedding
-from app.services.data_extractors import DataExtractorFactory
+from app.models.knowledge_base import KnowledgeNode
+from app.services.data_extractors.factory import DataExtractorFactory
 from app.services.data_extractors.web_extractor import WebDataExtractor
-import numpy as np
 
 
 class KnowledgeService:
     def __init__(self, db: Session, groq_api_key: Optional[str] = None):
         self.db = db
-        self.embeddings_model = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
         # Инициализируем фабрику экстракторов
         self.extractor_factory = DataExtractorFactory(groq_api_key=groq_api_key)
 
@@ -44,8 +38,10 @@ class KnowledgeService:
             )
             
             # Проверяем, является ли источник веб-страницей
+            print("ALE")
             web_extractor = WebDataExtractor()
             is_web_source = web_extractor.can_handle(source_input)
+            print("ALE21")
             
             if is_web_source:
                 # Для веб-источников просто сохраняем URL без обработки
@@ -77,9 +73,7 @@ class KnowledgeService:
                     extractor_metadata=extracted_data.metadata
                 )
                 
-                # Разбиваем текст на чанки и создаем embeddings
-                self._create_embeddings_for_node(kb_node, extracted_data.text_content)
-                
+                # We no longer create embeddings for the node
                 return kb_node
             
         except Exception as e:
@@ -167,11 +161,7 @@ class KnowledgeService:
             kb_node.source_data = source_data
             kb_node.extractor_metadata = extractor_metadata
             
-            # Удаляем старые embeddings только для не-веб источников
-            if source_type != "web":
-                self.db.query(KnowledgeEmbedding).filter(
-                    KnowledgeEmbedding.kb_id == kb_node.id
-                ).delete()
+            # We no longer need to delete embeddings
         else:
             # Создаем новую ноду
             kb_node = KnowledgeNode(
@@ -187,63 +177,6 @@ class KnowledgeService:
         self.db.commit()
         self.db.refresh(kb_node)
         return kb_node
-    
-    def _create_embeddings_for_node(self, kb_node: KnowledgeNode, text_content: str):
-        """
-        Создает embeddings для текста.
-        """
-        # Разбиваем текст на чанки
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks = splitter.split_text(text_content)
-        
-        if not chunks:
-            return
-        
-        # Создаем embeddings
-        vectors = self.embeddings_model.embed_documents(chunks)
-        
-        # Создаем объекты embeddings
-        embeddings = [
-            KnowledgeEmbedding(
-                kb_id=kb_node.id,
-                chunk_index=idx,
-                embedding=vector,
-                text_chunk=chunk
-            )
-            for idx, (chunk, vector) in enumerate(zip(chunks, vectors))
-        ]
-        
-        # Сохраняем в базу
-        self.db.add_all(embeddings)
-        self.db.commit()
-    
-    def search_embeddings(self, agent_id: int, node_id: str, query: str, top_k: int = 5):
-        """
-        Поиск по embeddings в конкретной ноде.
-        """
-        kb_node = (
-            self.db.query(KnowledgeNode)
-            .filter(KnowledgeNode.agent_id == agent_id, KnowledgeNode.node_id == node_id)
-            .first()
-        )
-        if not kb_node:
-            return []
-
-        query_emb = self.embeddings_model.embed_query(query)
-        
-        # Простой поиск по косинусному сходству
-        results = []
-        for emb in kb_node.embeddings:
-            if emb.embedding is not None:
-                # Вычисляем косинусное сходство
-                similarity = np.dot(query_emb, emb.embedding) / (
-                    np.linalg.norm(query_emb) * np.linalg.norm(emb.embedding)
-                )
-                results.append((emb.id, emb.text_chunk, float(similarity)))
-
-        # Сортируем по сходству
-        results.sort(key=lambda x: x[2], reverse=True)
-        return results[:top_k]
     
     def get_source_info(self, agent_id: int, node_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -268,7 +201,7 @@ class KnowledgeService:
             "extractor_metadata": kb_node.extractor_metadata,
             "created_at": kb_node.created_at.isoformat() if kb_node.created_at else None,
             "updated_at": kb_node.updated_at.isoformat() if kb_node.updated_at else None,
-            "embeddings_count": len(kb_node.embeddings)
+            # Removed embeddings_count
         }
     
     def get_supported_source_types(self) -> Dict[str, List[str]]:
@@ -301,10 +234,22 @@ class KnowledgeService:
             .first()
         )
         
-        if not kb_node or not kb_node.source_data or "url" not in kb_node.source_data:
+        # If no knowledge node found, check if we can extract URL from node text
+        if not kb_node:
+            # Try to get the node text from the UI node data
+            # This would require access to the node data, which we don't have here
+            # So we'll return empty results
             return []
         
-        url = kb_node.source_data["url"]
+        # Check if we have URL in source_data or need to extract it
+        url = None
+        if kb_node.source_data and "url" in kb_node.source_data:
+            url = kb_node.source_data["url"]
+        elif kb_node.extractor_metadata and "url" in kb_node.extractor_metadata:
+            url = kb_node.extractor_metadata["url"]
+        
+        if not url:
+            return []
         
         try:
             # Выполняем реальный скрапинг
@@ -312,33 +257,9 @@ class KnowledgeService:
             source_input = self.extractor_factory.create_source_input(url, url, {})
             extracted_data = web_extractor.extract(source_input)
 
-            print(extracted_data)
-            
-            # Разбиваем текст на чанки для поиска
-            splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            chunks = splitter.split_text(extracted_data.text_content)
-
-            print(chunks)
-            
-            if not chunks:
-                return []
-            
-            # Создаем embeddings для извлеченного текста
-            query_emb = self.embeddings_model.embed_query(query)
-            chunk_vectors = self.embeddings_model.embed_documents(chunks)
-            
-            # Поиск по косинусному сходству
-            results = []
-            for idx, (chunk, vector) in enumerate(zip(chunks, chunk_vectors)):
-                # Вычисляем косинусное сходство
-                similarity = np.dot(query_emb, vector) / (
-                    np.linalg.norm(query_emb) * np.linalg.norm(vector)
-                )
-                results.append((idx, chunk, float(similarity)))
-
-            # Сортируем по сходству
-            results.sort(key=lambda x: x[2], reverse=True)
-            return results[:top_k]
+            # For now, we just return the full content since we're not using embeddings
+            # In a real implementation, you might want to implement a simpler search
+            return [(0, extracted_data.text_content[:500], 1.0)]  # Return first 500 chars as example
             
         except Exception as e:
             print(f"Error scraping web source: {str(e)}")

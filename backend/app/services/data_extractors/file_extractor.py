@@ -3,8 +3,8 @@ import os
 import tempfile
 from typing import List
 from datetime import datetime
-
-from langchain_community.document_loaders import TextLoader, PyPDFLoader, Docx2txtLoader
+import PyPDF2
+import docx2txt
 
 from .base import DataExtractor, SourceInput, ExtractedData
 
@@ -47,11 +47,8 @@ class FileDataExtractor(DataExtractor):
         file_type = self.SUPPORTED_EXTENSIONS[ext]
         
         try:
-            # Загружаем документ через langchain
-            docs = self._load_document_with_langchain(source_input.data, source_input.source_name)
-            
-            # Объединяем все страницы в один текст
-            full_text = "\n".join([doc.page_content for doc in docs])
+            # Загружаем документ напрямую без langchain
+            full_text = self._load_document(source_input.data, source_input.source_name)
             
             # Предварительная обработка текста
             processed_text = self.preprocess_text(full_text)
@@ -62,7 +59,6 @@ class FileDataExtractor(DataExtractor):
                 "file_type": file_type,
                 "file_extension": ext,
                 "file_size": len(source_input.data.getvalue()) if hasattr(source_input.data, 'getvalue') else None,
-                "pages_count": len(docs),
                 "processed_at": datetime.now().isoformat()
             })
             
@@ -75,8 +71,8 @@ class FileDataExtractor(DataExtractor):
         except Exception as e:
             raise Exception(f"Error extracting text from file {source_input.source_name}: {str(e)}")
     
-    def _load_document_with_langchain(self, file_data: io.BytesIO, filename: str):
-        """Загружает документ используя соответствующий langchain loader"""
+    def _load_document(self, file_data: io.BytesIO, filename: str) -> str:
+        """Загружает документ напрямую без использования langchain"""
         _, ext = os.path.splitext(filename.lower())
         
         # Сохраняем файл во временную директорию
@@ -88,24 +84,30 @@ class FileDataExtractor(DataExtractor):
             tmp_path = tmp.name
         
         try:
-            # Выбираем подходящий loader
+            # Выбираем подходящий метод загрузки в зависимости от типа файла
             if ext == '.txt':
-                loader = TextLoader(tmp_path, encoding="utf-8")
+                with open(tmp_path, 'r', encoding='utf-8') as f:
+                    return f.read()
             elif ext == '.pdf':
-                loader = PyPDFLoader(tmp_path)
+                return self._extract_text_from_pdf(tmp_path)
             elif ext in ['.docx', '.doc']:
-                loader = Docx2txtLoader(tmp_path)
+                return docx2txt.process(tmp_path)
             else:
                 raise ValueError(f"Unsupported file extension: {ext}")
-            
-            # Загружаем документ
-            docs = loader.load()
-            return docs
             
         finally:
             # Удаляем временный файл
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+    
+    def _extract_text_from_pdf(self, pdf_path: str) -> str:
+        """Извлекает текст из PDF файла"""
+        text = ""
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        return text
     
     def validate_input(self, source_input: SourceInput) -> bool:
         """Дополнительная валидация для файлов"""

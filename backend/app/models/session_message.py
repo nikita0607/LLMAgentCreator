@@ -10,5 +10,7 @@ class SessionMessage(Base):
     text = Column(String, nullable=False)
     action = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # New field to store the node ID that generated this message
+    node_id = Column(String, nullable=True)  # ID of the node that generated this message
 
     session = relationship("Session", backref="messages")

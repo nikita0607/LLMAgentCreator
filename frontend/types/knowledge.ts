@@ -39,7 +39,7 @@ export interface KnowledgeNodeInfo {
   extractor_metadata?: Record<string, any>;
   created_at?: string;
   updated_at?: string;
-  embeddings_count: number;
+  // Removed embeddings_count
 }
 
 // Supported types response
@@ -72,7 +72,7 @@ export interface ConditionalBranch {
 export interface ExtendedNodeData {
   id: string;
   label: string;
-  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input";
+  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input" | "llm_request";
   action?: string;
   url?: string;
   method?: string;
@@ -83,7 +83,7 @@ export interface ExtendedNodeData {
   source_name?: string;
   source_metadata?: Record<string, any>;
   extractor_metadata?: Record<string, any>;
-  embeddings_count?: number;
+  // Removed embeddings_count
   updated_at?: string;
   // Legacy property for backward compatibility
   filename?: string;
@@ -92,6 +92,9 @@ export interface ExtendedNodeData {
   default_branch?: string;
   // Forced message specific properties
   forced_text?: string;
+  reference_node_id?: string;
+  // LLM Request specific properties
+  system_prompt?: string;
 }
 
 export interface NodeParam {

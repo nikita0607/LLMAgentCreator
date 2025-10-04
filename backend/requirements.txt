@@ -15,17 +15,15 @@ fastapi~=0.116.1
 SQLAlchemy~=2.0.43
 pydantic~=2.11.7
 python-dotenv~=1.1.1
-langchain~=0.3.27
-langchain-community~=0.3.29
+# Removed langchain dependencies as we're no longer using embeddings
 numpy~=2.3.2
-pgvector~=0.4.1
+# Removed pgvector as we're no longer using embeddings
+pypdf2
 pypdf
-langchain_huggingface
-sentence-transformers
+docx2txt
 beautifulsoup4~=4.12.3
 pytest~=8.0.0
 python-docx
-docx2txt
 # Optional dependencies for audio transcription
 # openai-whisper  # For local transcription
 # ffmpeg-python   # For audio file conversion

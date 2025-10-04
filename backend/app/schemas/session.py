@@ -32,6 +32,7 @@ class MessageHistory(BaseModel):
     text: str
     action: Optional[Dict[str, Any]] = None
     created_at: datetime
+    node_id: Optional[str] = None  # ID of the node that generated this message
     class Config:
         from_attributes = True
 

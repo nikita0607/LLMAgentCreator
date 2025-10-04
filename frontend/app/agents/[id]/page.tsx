@@ -44,7 +44,7 @@ interface NodeParam {
 interface NodeData {
   id: string;
   label: string;
-  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input";
+  type: "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input" | "llm_request";
   action?: string;
   url?: string;
   method?: string;
@@ -57,6 +57,10 @@ interface NodeData {
   filename?: string;
   // Forced message specific properties
   forced_text?: string;
+  reference_node_id?: string;
+  // LLM Request specific properties
+  system_prompt?: string;
+  save_context?: boolean;
 }
 
 // Use ExtendedNodeData for the actual node data with knowledge properties
@@ -133,7 +137,6 @@ export default function AgentEditorPage() {
           source_name: knowledgeInfo.name,
           source_metadata: knowledgeInfo.source_data,
           extractor_metadata: knowledgeInfo.extractor_metadata,
-          embeddings_count: knowledgeInfo.embeddings_count,
           updated_at: knowledgeInfo.updated_at,
           // Legacy filename for backward compatibility
           filename: knowledgeInfo.name
@@ -274,7 +277,13 @@ export default function AgentEditorPage() {
             // Handle forced message specific properties
             if (n.type === "forced_message") {
               nodeData.forced_text = n.forced_text;
+              nodeData.reference_node_id = n.reference_node_id;
               console.log(`Loading forced_message node ${n.id} with forced_text:`, n.forced_text);
+            }
+
+            // Handle LLM request specific properties
+            if (n.type === "llm_request") {
+              nodeData.system_prompt = n.system_prompt;
             }
 
             if (n.type === "knowledge") {
@@ -287,7 +296,6 @@ export default function AgentEditorPage() {
                   source_name: knowledgeData.source_name,
                   source_metadata: knowledgeData.source_metadata,
                   extractor_metadata: knowledgeData.extractor_metadata,
-                  embeddings_count: knowledgeData.embeddings_count,
                   updated_at: knowledgeData.updated_at,
                   filename: knowledgeData.source_name, // Legacy compatibility
                 };
@@ -321,6 +329,14 @@ export default function AgentEditorPage() {
               });
             }
             if (n.type === "knowledge" && n.next) {
+              agentEdges.push({
+                id: `${n.id}->${n.next}`,
+                source: n.id,
+                target: n.next,
+                sourceHandle: "default",
+              });
+            }
+            if (n.type === "llm_request" && n.next) {
               agentEdges.push({
                 id: `${n.id}->${n.next}`,
                 source: n.id,
@@ -607,6 +623,17 @@ export default function AgentEditorPage() {
           if (out) base.next = out.target;
         }
 
+        if (data.type === "llm_request") {
+          // Handle llm_request nodes like simple nodes with a single next connection
+          const out = outgoing[n.id]?.[0];
+          if (out) base.next = out.target;
+          
+          // Add system_prompt if it exists
+          if (data.system_prompt) {
+            base.system_prompt = data.system_prompt;
+          }
+        }
+
         if (data.type === "forced_message") {
           console.log("Processing forced_message node:", n.id, "with data:", data);
           if (data.forced_text) {
@@ -614,6 +641,10 @@ export default function AgentEditorPage() {
             console.log("Added forced_text to base:", data.forced_text);
           } else {
             console.log("WARNING: No forced_text found for forced_message node");
+          }
+          // Add reference_node_id if it exists
+          if (data.reference_node_id) {
+            base.reference_node_id = data.reference_node_id;
           }
         }
 
@@ -899,7 +930,7 @@ export default function AgentEditorPage() {
                     onChange={(e) =>
                       setEditNode({
                         ...editNode,
-                        type: e.target.value as "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input",
+                        type: e.target.value as "webhook" | "knowledge" | "conditional_llm" | "forced_message" | "wait_for_user_input" | "llm_request",
                       })
                     }
                     className="w-full p-2 bg-gray-900 border border-gray-600 text-green-400 font-mono mb-4 focus:border-green-400 focus:outline-none"
@@ -910,7 +941,16 @@ export default function AgentEditorPage() {
                     <option value="knowledge">knowledge</option>
                     <option value="conditional_llm">conditional_llm</option>
                     <option value="forced_message">forced_message</option>
+                    <option value="llm_request">llm_request</option>
                   </select>
+
+                  {/* Display Node ID */}
+                  <div className="mb-4 p-2 bg-gray-900 border border-gray-600 rounded">
+                    <label className="block text-green-400 text-sm mb-1">node.id</label>
+                    <div className="font-mono text-gray-300 text-sm break-all">
+                      {editNode.id}
+                    </div>
+                  </div>
 
                   {editNode.type === "webhook" && (
                     <>
@@ -1126,6 +1166,22 @@ export default function AgentEditorPage() {
                       <p className="text-xs text-blue-600 mt-1">
                         Current value: "{editNode.forced_text || "(empty)"}"
                       </p>
+                                        
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <label className="block mb-2 text-gray-800">Reference Node ID (optional)</label>
+                        <input
+                          type="text"
+                          value={editNode.reference_node_id || ""}
+                          onChange={(e) => {
+                            setEditNode({ ...editNode, reference_node_id: e.target.value || undefined });
+                          }}
+                          className="w-full p-2 border rounded text-gray-900"
+                          placeholder="Enter node ID to reference its text content"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          If specified, this node will display text from the referenced node instead of the forced message above.
+                        </p>
+                      </div>
                     </div>
                   )}
 
@@ -1224,6 +1280,37 @@ export default function AgentEditorPage() {
                     </div>
                   )}
 
+                  {editNode.type === "llm_request" && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold mb-4 text-gray-800">LLM Request Configuration</h3>
+                      
+                      <div className="mb-4">
+                        <label className="block mb-2 text-gray-800">
+                          System Prompt
+                        </label>
+                        <p className="text-sm text-gray-500 mb-3">
+                          Optional system prompt to guide the LLM behavior
+                        </p>
+                        
+                        <textarea
+                          value={editNode.system_prompt || ""}
+                          onChange={(e) =>
+                            setEditNode({ ...editNode, system_prompt: e.target.value })
+                          }
+                          className="w-full p-2 border rounded text-gray-900 text-sm"
+                          rows={4}
+                          placeholder="Enter system prompt to guide the LLM..."
+                        />
+                      </div>
+                      
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Note:</strong> This node will automatically use context from connected Knowledge and Webhook nodes.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-600">
                     <button
                       className="bg-transparent border border-gray-600 text-gray-400 px-4 py-2 font-mono hover:bg-gray-700 hover:border-gray-500 transition-colors duration-200"

@@ -1,5 +1,3 @@
-# SOSI CHLEN
-
 # LLMAgentCreator
 
 **LLMAgentCreator** is a full-stack application for creating, managing, and interacting with AI agents powered by large language models (LLMs). The platform provides agent lifecycle management, real-time chat capabilities, session handling, authentication, and integration with external services.
